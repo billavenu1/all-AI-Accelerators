@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AWS Trainium3: the UltraServer taken apart | AI Accelerators 101</title>
+  <meta name="description" content="How AWS's Trainium3 UltraServer is built: 144 chips across two racks, the NeuronSwitch fabric, the chip's NeuronCores and memory, the Neuron SDK, and AWS's claims versus Trainium2.">
+  <meta property="og:title" content="AWS Trainium3: the UltraServer taken apart | AI Accelerators 101">
+  <meta property="og:description" content="How AWS's Trainium3 UltraServer is built: 144 chips across two racks, the NeuronSwitch fabric, the chip's NeuronCores and memory, the Neuron SDK, and AWS's claims versus Trainium2.">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="../assets/inner.css">
+  <link rel="stylesheet" href="../assets/side.css">
+  <style>
+    /* Page-only adjustments for the v2 shell (this file only). */
+    /* sticky tab bar and detail column clear the fixed header and, below 1024px, the provider row */
+    .tabs { top: calc(var(--top-h) + var(--side-row, 0px) + 8px); }
+    .detail-col { top: calc(var(--top-h) + var(--side-row, 0px) + 68px); container-type: inline-size; }
+    /* heading levels step one at a time; these keep the old look */
+    .rack-col .rack-label { margin: 12px 0 6px; font: 500 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .rack-col .rack-label:first-child { margin-top: 0; }
+    .part-detail .sub { font: 600 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 8px; }
+    .part-detail .why + .sub, .part-detail .stats + .detail-split .sub { margin-top: 12px; }
+    .part.seen .part-btn .n::after { content: " \2713" / ""; }
+    /* readable instruction text */
+    .section-head p, .empty-detail { color: #c4c4c4; }
+    .info-btn:hover, .info-btn:focus-visible { color: #111111; }
+    /* rack drawing: graphite instead of the original navy */
+    .rack-frame { background: linear-gradient(180deg, #202020, #171717); border-color: var(--border); }
+    .rack-frame .part-btn { background: var(--surface-2); border-color: #383838; color: var(--text); }
+    .rack-frame .part-btn .s { color: #b3b3b3; }
+    .rack-frame .part.active .part-btn { background: color-mix(in srgb, var(--part-color) 22%, var(--surface-2)); }
+    /* chip schematic: graphite package, bronze outline, theme role colours (no violet) */
+    .package.mi-pkg { background: #151515; border-color: var(--accent-2); box-shadow: 0 0 0 1px #2a2a2a; }
+    .mi-pkg .fcd { background: #1a1a1a; border-color: #3a3a3a; }
+    .mi-pkg .die-label { color: var(--link); }
+    .package .part { --part-color: var(--r-tray); }
+    .package .part[data-role="compute"], .part-detail[data-role="compute"] { --part-color: var(--r-gpu); }
+    .package .part[data-role="cache"], .part-detail[data-role="cache"] { --part-color: var(--r-cpu); }
+    .package .part[data-role="mem"], .part-detail[data-role="mem"] { --part-color: var(--link); }
+    .package .part[data-role="io"], .part-detail[data-role="io"] { --part-color: var(--r-net); }
+    .package .part[data-role="sched"], .part-detail[data-role="sched"] { --part-color: var(--r-dpu); }
+    .package .part-btn { background: color-mix(in srgb, var(--part-color) 20%, #141414); color: var(--text); padding: 6px 7px; }
+    .package .part:has(.info-btn) .part-btn { padding-top: 22px; } /* text clears the corner ⓘ */
+    .package .part:hover .part-btn, .package .part.active .part-btn { background: color-mix(in srgb, var(--part-color) 40%, #141414); }
+    /* narrow columns: the schematic shrinks to fit, the detail panel re-flows */
+    .die-scroll { container-type: inline-size; }
+    @container (max-width: 520px) {
+      .package.mi-pkg { min-width: 0; grid-template-columns: 64px minmax(0, 1fr) 64px; padding: 8px; }
+      .mi-pkg .a-core { grid-template-columns: minmax(0, 1fr); }
+      .package .part-btn .n { font-size: .66rem; }
+      .package .part-btn .s { font-size: .6rem; }
+    }
+    @container (max-width: 540px) { .part-detail .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @container (max-width: 380px) { .detail-split { grid-template-columns: minmax(0, 1fr); } }
+    .part-detail .stat .v { overflow-wrap: anywhere; }
+    .detail-nav { flex-wrap: wrap; }
+    #tab-sw .stack + .stats { margin-top: 20px; }
+    .tab-panel .note { margin-top: 16px; }
+    .claim .value { margin-right: 60px; } /* keeps long values clear of the corner tag */
+    @media (max-width: 639px) { .tabs { gap: 2px; padding: 4px; } .tabs button { padding: 8px 11px; font-size: .86rem; } }
+    /* one column of 8 NeuronCores (2 wide x 4 deep) between label and SRAM bar */
+    .mi-pkg .a-core { grid-template-columns: minmax(0, 1fr); }
+    .mi-pkg .fcd { grid-template-rows: auto repeat(4, 1fr) auto; }
+  </style>
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="../index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="../index.html">Home</a><a href="../primer.html">Primer</a><a href="../compare.html">Compare</a><a href="../software.html">Software</a></nav>
+      <a class="btn top__cta" href="../index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="../providers/nvidia.html"><span class="side__logo"><img src="../assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="../providers/amd.html"><span class="side__logo"><img src="../assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="../providers/google-tpu.html"><span class="side__logo"><img src="../assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="../providers/aws.html" aria-current="page"><span class="side__logo"><img src="../assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="../providers/microsoft-maia.html"><span class="side__logo"><img src="../assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="../providers/qualcomm.html"><span class="side__logo"><img src="../assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="../providers/cerebras.html"><span class="side__logo"><img src="../assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="../providers/groq.html"><span class="side__logo"><img src="../assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <!-- Block 1: Available series -->
+    <section class="provider-hero">
+      <span class="camp camp-asic">Hyperscaler ASIC</span>
+      <h1>AWS: <span class="grad-text">Trainium3 (Trn3 UltraServer)</span></h1>
+      <p class="lede">Amazon's own AI chip, designed in-house and rented through EC2. Trn3 UltraServers became generally available on 2 December 2025 and join up to 144 Trainium3 chips into one system. Amazon Bedrock already runs production traffic on them.</p>
+      <div class="timeline" role="group" aria-label="Available series">
+        <span class="gen">Inferentia (Inf1)</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">Inferentia2</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">Trainium1</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">Trainium2</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen latest">Trainium3</span>
+      </div>
+    </section>
+
+    <!-- Block 2: Latest flagship at a glance -->
+    <section>
+      <div class="stats">
+        <div class="stat"><span class="v">144</span><span class="l">Trainium3 chips in one UltraServer (max)</span></div>
+        <div class="stat"><span class="v">362 PF</span><span class="l">MXFP8 compute per UltraServer</span></div>
+        <div class="stat"><span class="v">20.7 TB</span><span class="l">HBM3e memory per UltraServer</span></div>
+        <div class="stat"><span class="v">4.4×</span><span class="l">performance vs Trn2 UltraServer (AWS claim)</span></div>
+      </div>
+    </section>
+
+    <!-- Blocks 3–6 as tabs -->
+    <section>
+      <div class="tabs" role="tablist" aria-label="Sections of this page">
+        <button role="tab" aria-selected="true"  id="tab-hw-btn" aria-controls="tab-hw">Inside the rack</button>
+        <button role="tab" aria-selected="false" id="tab-chip-btn" aria-controls="tab-chip">The chip</button>
+        <button role="tab" aria-selected="false" id="tab-sw-btn" aria-controls="tab-sw">Software</button>
+        <button role="tab" aria-selected="false" id="tab-claims-btn" aria-controls="tab-claims">Claims</button>
+      </div>
+
+      <!-- ===================== Block 4: Hardware ecosystem ===================== -->
+      <div class="tab-panel" id="tab-hw" role="tabpanel" aria-labelledby="tab-hw-btn">
+        <div class="section-head">
+          <h2>Take the UltraServer apart</h2>
+          <p>Click a component to learn why it's special. Tap <b>ⓘ</b> to learn what that kind of part is.</p>
+        </div>
+        <p class="legend">Figures are AWS's own unless tagged <span class="tag tag-verify">PRESS</span> (reported by trade press, not confirmed by AWS) or marked "derived" (our own arithmetic on AWS figures). AWS has not published power figures, so none are shown.</p>
+
+        <div data-explorer data-noun="components of the UltraServer">
+          <div class="explorer-progress"><span class="count"></span><div class="bar" aria-hidden="true"><span></span></div></div>
+
+          <div class="explorer">
+            <!-- ---------- Left: the rack ---------- -->
+            <div class="rack-col">
+              <h3 class="rack-label">The UltraServer · two racks (144-chip version)</h3>
+              <div class="rack-frame">
+                <div class="part" data-part="power" data-role="power">
+                  <button class="part-btn"><span class="n">Power &amp; liquid cooling</span><span class="s">Cold plates on chips · closed loop</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="aws-concept-cooling" aria-label="What is liquid cooling?">i</button>
+                </div>
+                <div class="part" data-part="tray" data-role="tray">
+                  <button class="part-btn"><span class="n">Compute blades ×36</span><span class="s">4 Trainium3 + 1 Graviton in each</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="aws-concept-blade" aria-label="What is a compute blade?">i</button>
+                </div>
+                <div class="part" data-part="switch" data-role="net">
+                  <button class="part-btn"><span class="n">NeuronSwitch-v1</span><span class="s">All-to-all scale-up fabric</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="aws-concept-scaleup" aria-label="What is a scale-up switch?">i</button>
+                </div>
+              </div>
+
+              <h3 class="rack-label">Inside one compute blade</h3>
+              <div class="tray-zoom">
+                <div class="part" data-part="trn" data-role="gpu">
+                  <button class="part-btn"><span class="n">Trainium3</span><span class="s">×4 per blade</span></button>
+                  <button class="info-btn" popovertarget="aws-concept-asic" aria-label="What is an AI ASIC?">i</button>
+                </div>
+                <div class="part" data-part="grav" data-role="cpu">
+                  <button class="part-btn"><span class="n">Graviton</span><span class="s">×1 per blade</span></button>
+                  <button class="info-btn" popovertarget="aws-concept-cpu" aria-label="What is a host CPU?">i</button>
+                </div>
+                <div class="part" data-part="nitro" data-role="dpu">
+                  <button class="part-btn"><span class="n">Nitro</span><span class="s">Network cards ×2</span></button>
+                  <button class="info-btn" popovertarget="aws-concept-nitro" aria-label="What is Nitro?">i</button>
+                </div>
+              </div>
+
+              <h3 class="rack-label">Beyond the UltraServer</h3>
+              <div class="beyond">
+                <div class="part" data-part="efa" data-role="net">
+                  <button class="part-btn"><span class="n">EFA</span><span class="s">Scale-out network</span></button>
+                  <button class="info-btn" popovertarget="aws-concept-scaleout" aria-label="What is a scale-out network?">i</button>
+                </div>
+                <div class="part" data-part="ultracluster" data-role="net">
+                  <button class="part-btn"><span class="n">UltraCluster 3.0</span><span class="s">Many UltraServers</span></button>
+                  <button class="info-btn" popovertarget="aws-concept-ultra" aria-label="What are an UltraServer and an UltraCluster?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ---------- Right: detail panels ---------- -->
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">👈</div>
+                <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="power" data-role="power" hidden>
+                <span class="role">Rack infrastructure <button class="info-btn inline" popovertarget="aws-concept-cooling" aria-label="What is liquid cooling?">i</button></span>
+                <h3>Power &amp; liquid cooling</h3>
+                <div class="count">The 144-chip UltraServer is liquid-cooled</div>
+                <p class="why"><strong>Why it's special:</strong> TechCrunch's lab tour reports that the Trainium3 prototype was air-cooled, like earlier generations, but the production chip is liquid-cooled in a closed loop. Reportedly the coolant touches only the hottest parts: the Trainium3 modules, the PCIe switch and the Graviton CPU. Fans still cool the rest <span class="tag tag-verify">PRESS</span>.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2 racks</span><span class="l">hold one 144-chip UltraServer</span></div>
+                  <div class="stat"><span class="v">&gt;2×</span><span class="l">chips per rack vs Trn2 (AWS claim)</span></div>
+                  <div class="stat"><span class="v">&gt;5×</span><span class="l">output tokens per megawatt vs Trn2, Bedrock (AWS claim)</span></div>
+                  <div class="stat"><span class="v">Unpublished</span><span class="l">rack power and coolant flow</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Removes the heat of 144 chips so they can sit close together and stay in one fast fabric.</li>
+                      <li>A smaller 32-chip-per-rack option is reportedly air-cooled <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>AWS gives efficiency ratios (4× performance per watt vs Trn2), not watts.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="tray">Compute blades</button><button data-goto="switch">NeuronSwitch</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="tray" data-role="tray" hidden>
+                <span class="role">Building block <button class="info-btn inline" popovertarget="aws-concept-blade" aria-label="What is a compute blade?">i</button></span>
+                <h3>Compute blade</h3>
+                <div class="count">×36 per UltraServer · 4 chips each · 18 per rack <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> each blade holds just four Trainium3 chips and one Graviton CPU. The first-generation Trn3 UltraServer put 16 chips in each of 4 servers; the 144-chip version uses many small blades and lets the switches do the linking.</p>
+                <h4 class="sub">Key numbers (per blade)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">4 + 1</span><span class="l">Trainium3 chips + Graviton CPU</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">576 GiB</span><span class="l">HBM3e (4 × 144 GiB, derived)</span></div>
+                  <div class="stat"><span class="v">64</span><span class="l">host vCPUs (derived from the UltraServer total)</span></div>
+                  <div class="stat"><span class="v">768 GiB</span><span class="l">host memory (derived)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What else is inside</h4>
+                    <ul>
+                      <li>Two 8 TB NVMe drives for local storage <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>AWS hasn't published a blade weight or size.</li>
+                      <li>AWS doesn't list smaller Trn3 instance sizes; the 144-chip UltraServer is the product.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Look inside</h4>
+                    <div class="links-to"><button data-goto="trn">Trainium3</button><button data-goto="grav">Graviton</button><button data-goto="nitro">Nitro</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="switch" data-role="net" hidden>
+                <span class="role">Scale-up network <button class="info-btn inline" popovertarget="aws-concept-scaleup" aria-label="What is a scale-up switch?">i</button></span>
+                <h3>NeuronSwitch-v1</h3>
+                <div class="count">All-to-all fabric · linked by NeuronLink-v4</div>
+                <p class="why"><strong>Why it's special:</strong> every chip can reach every other chip through switches, instead of through neighbours. Trn2 wired its chips as a torus, where data hops chip to chip. AWS says NeuronSwitch doubles chip-to-chip bandwidth compared with Trn2 UltraServers.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2.56 TB/s</span><span class="l">NeuronLink-v4 per chip</span></div>
+                  <div class="stat"><span class="v">2×</span><span class="l">chip-to-chip bandwidth vs Trn2 (AWS claim)</span></div>
+                  <div class="stat"><span class="v">10</span><span class="l">switch trays per rack</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>One switch level connects the 4 chips in a blade; two more switches link the blades (AWS Neuron docs).</li>
+                      <li>Reportedly built from PCIe Gen6 switch chips <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>AWS's pages differ on link speed: 2.56 TB/s on one, 2,048 GiB/s on another, "2 TB/s" on a third. We show 2.56 TB/s.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="trn">Every Trainium3</button><button data-goto="tray">Compute blades</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="trn" data-role="gpu" hidden>
+                <span class="role">Accelerator <button class="info-btn inline" popovertarget="aws-concept-asic" aria-label="What is an AI ASIC?">i</button></span>
+                <h3>Trainium3</h3>
+                <div class="count">×144 per UltraServer · AWS's first 3nm AI chip</div>
+                <p class="why"><strong>Why it's special:</strong> it is AWS's first 3nm AI chip. Per chip it is 1.5× Trn2's memory and 1.7× its bandwidth. One honest limit: FP4 is not faster than FP8 here, because the chip converts MXFP4 to MXFP8 before the maths. Rubin (288 GB HBM4) and MI455X (432 GB HBM4) hold far more per chip; formats differ, so compare with care. Open "The chip" tab to explore the blocks.</p>
+                <h4 class="sub">Key numbers (per chip)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">144 GiB</span><span class="l">HBM3e</span></div>
+                  <div class="stat"><span class="v">4.9 TB/s</span><span class="l">memory bandwidth</span></div>
+                  <div class="stat"><span class="v">2.52 PF</span><span class="l">MXFP8 / MXFP4 (dense)</span></div>
+                  <div class="stat"><span class="v">671 TF</span><span class="l">BF16 / FP16 / TF32</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Runs training and inference maths on 8 NeuronCores.</li>
+                      <li>Also lists 183 TFLOPS of FP32 and structured-sparsity modes.</li>
+                      <li>AWS hasn't published its power draw.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="switch">NeuronSwitch</button><button data-goto="grav">Graviton</button><button data-goto="nitro">Nitro cards</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="grav" data-role="cpu" hidden>
+                <span class="role">Host CPU <button class="info-btn inline" popovertarget="aws-concept-cpu" aria-label="What is a host CPU?">i</button></span>
+                <h3>Graviton</h3>
+                <div class="count">×36 per UltraServer · 1 per blade · Graviton4 <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> Graviton is Amazon's own Arm CPU, so chip, host CPU and network card all come from AWS. Each blade pairs one Graviton CPU with four chips; the generation (Graviton4) is a press report.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">1 : 4</span><span class="l">one CPU per four Trainium3 chips</span></div>
+                  <div class="stat"><span class="v">2,304</span><span class="l">host vCPUs per UltraServer</span></div>
+                  <div class="stat"><span class="v">27,648 GiB</span><span class="l">host memory per UltraServer</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Boots the blade, runs the Neuron runtime and feeds the four chips.</li>
+                      <li>Reportedly speaks PCIe Gen5 while Trainium3 speaks Gen6, so adapters sit between them <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="trn">4 Trainium3</button><button data-goto="nitro">Nitro cards</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="nitro" data-role="dpu" hidden>
+                <span class="role">Nitro (DPU) <button class="info-btn inline" popovertarget="aws-concept-nitro" aria-label="What is Nitro?">i</button></span>
+                <h3>AWS Nitro</h3>
+                <div class="count">2 network cards per blade · Nitro-v6 <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> Nitro is AWS's own family of data-processing cards. They carry the blade's network traffic and take networking and security work off the Graviton CPU. Details of the Trn3 cards come from one analyst report, not from AWS.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2</span><span class="l">EFA cards per blade, one per 2 chips</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">400G</span><span class="l">per EFA card</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">2 × 200G</span><span class="l">separate front-end module</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>EFA cards link Trainium3 chips to other UltraServers.</li>
+                      <li>A separate module reportedly handles ordinary traffic to storage and the internet <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="efa">EFA network</button><button data-goto="grav">Graviton</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="efa" data-role="net" hidden>
+                <span class="role">Scale-out network <button class="info-btn inline" popovertarget="aws-concept-scaleout" aria-label="What is a scale-out network?">i</button></span>
+                <h3>EFA (Elastic Fabric Adapter)</h3>
+                <div class="count">Outside the UltraServer · AWS's own network protocol</div>
+                <p class="why"><strong>Why it's special:</strong> EFA is AWS's high-speed networking for AI, built into its Nitro cards. It links UltraServers into larger clusters. AWS quotes bandwidth per UltraServer, not per chip.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">28.8 Tb/s</span><span class="l">per 144-chip UltraServer</span></div>
+                  <div class="stat"><span class="v">200 Gb/s</span><span class="l">per chip (derived: 28,800 ÷ 144)</span></div>
+                  <div class="stat"><span class="v">400 Gb/s</span><span class="l">per-chip option</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Carries traffic between UltraServers when a job needs more than 144 chips.</li>
+                      <li>Reportedly EFAv4 on dual top-of-rack switches <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="nitro">Nitro cards</button><button data-goto="ultracluster">UltraCluster</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="ultracluster" data-role="net" hidden>
+                <span class="role">Cluster <button class="info-btn inline" popovertarget="aws-concept-ultra" aria-label="What are an UltraServer and an UltraCluster?">i</button></span>
+                <h3>EC2 UltraCluster 3.0</h3>
+                <div class="count">Hundreds of thousands of chips · one non-blocking network</div>
+                <p class="why"><strong>Why it's special:</strong> AWS runs Trainium at very large scale. Project Rainier, built with Anthropic, went live in late 2025 with about 500,000 Trainium2 chips <span class="tag tag-verify">PRESS</span>. AWS says UltraCluster 3.0 scales to hundreds of thousands of Trainium chips, and an Amazon claim reported by The Register goes up to a million <span class="tag tag-verify">PRESS</span>.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">100,000s</span><span class="l">of chips (AWS)</span></div>
+                  <div class="stat"><span class="v">1 million</span><span class="l">chips, upper claim</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">~6,900</span><span class="l">UltraServers for 1 million chips (derived)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Lets one training job span many UltraServers over EFA.</li>
+                      <li>AWS describes the network as single, non-blocking and petabit-scale.</li>
+                      <li>AWS hasn't listed Trn3 regions on its launch pages.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="efa">EFA</button><button data-goto="switch">NeuronSwitch</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards (ⓘ) ===================== -->
+          <div class="concept" id="aws-concept-cooling" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Liquid cooling vs air cooling</h4></div>
+            <button class="close" popovertarget="aws-concept-cooling" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>Almost all the power an AI chip uses becomes heat. <b>Air cooling</b> blows air over metal fins. <b>Liquid cooling</b> pumps coolant through a cold plate on the chip, which carries far more heat away in less space.</p>
+              <p>Denser racks need liquid, because chips packed close together make too much heat for fans.</p>
+              <div class="analogy"><b>Analogy:</b> a desk fan versus a car radiator.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-blade" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a compute blade?</h4></div>
+            <button class="close" popovertarget="aws-concept-blade" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>A blade (AWS also says "server" or "sled") is a flat unit that slides into the rack. It carries a few accelerators, a host CPU and network cards on one board.</p>
+              <p>Racks are built from identical blades, so a faulty one can be swapped alone.</p>
+              <div class="analogy"><b>Analogy:</b> books on a shelf. You can pull one out without moving the rest.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-scaleup" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a scale-up network?</h4></div>
+            <button class="close" popovertarget="aws-concept-scaleup" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>Big models are split across many chips that must swap partial results constantly. A <b>scale-up</b> network links the chips in one system with very high bandwidth so they act like one big chip.</p>
+              <p>A <b>switch</b> lets every chip reach every other directly. The older <b>torus</b> design connects each chip only to its neighbours, so data hops along.</p>
+              <div class="analogy"><b>Analogy:</b> a central station where any platform connects to any other, versus a ring road where you pass through every stop.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-asic" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is an AI ASIC?</h4></div>
+            <button class="close" popovertarget="aws-concept-asic" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>An <b>ASIC</b> (application-specific integrated circuit) is a chip built for one job. Trainium does AI maths and little else, so it spends no silicon on graphics or general-purpose features.</p>
+              <p>The trade-off: software must be written or compiled for it, here with AWS's Neuron SDK.</p>
+              <div class="analogy"><b>Analogy:</b> a pasta machine. It makes one thing very well, where a GPU is a full kitchen.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-cpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a host CPU?</h4></div>
+            <button class="close" popovertarget="aws-concept-cpu" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>Accelerators can't run an operating system on their own. A <b>host CPU</b> boots the machine, loads data, launches work onto the accelerators and handles everything that isn't matrix maths.</p>
+              <p><b>Graviton</b> is AWS's own CPU family, built on Arm designs.</p>
+              <div class="analogy"><b>Analogy:</b> the head chef who reads the orders and hands tasks to the line cooks.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-nitro" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is Nitro (a DPU)?</h4></div>
+            <button class="close" popovertarget="aws-concept-nitro" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>A <b>data processing unit</b> is a network card with its own processor. It takes over the data centre's "plumbing": networking, storage access, encryption and keeping customers apart.</p>
+              <p><b>Nitro</b> is AWS's own DPU family. It lets the main CPU and the accelerators spend their time on the customer's work.</p>
+              <div class="analogy"><b>Analogy:</b> a building's security desk and mailroom. Residents never handle deliveries or visitors themselves.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-scaleout" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is scale-out (EFA)?</h4></div>
+            <button class="close" popovertarget="aws-concept-scaleout" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p><b>Scale-out</b> networks connect separate systems so thousands of them can work on one model. It is slower than the links inside one UltraServer, but it reaches much further.</p>
+              <p><b>EFA</b> (Elastic Fabric Adapter) is AWS's network interface for this. It moves data between machines with low delay, without going through the operating system.</p>
+              <div class="analogy"><b>Analogy:</b> the motorway between cities, while scale-up is the streets inside one city.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-ultra" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>UltraServer vs UltraCluster</h4></div>
+            <button class="close" popovertarget="aws-concept-ultra" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>An <b>UltraServer</b> is AWS's name for one scale-up system: up to 144 Trainium3 chips behind one set of switches, sold as a single unit.</p>
+              <p>An <b>UltraCluster</b> is many UltraServers joined by the EFA network inside one data-centre network.</p>
+              <div class="analogy"><b>Analogy:</b> an UltraServer is one office floor. An UltraCluster is the whole campus.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 3: The accelerator chip ===================== -->
+      <div class="tab-panel" id="tab-chip" role="tabpanel" aria-labelledby="tab-chip-btn" hidden>
+        <div class="section-head">
+          <h2>Inside Trainium3</h2>
+          <p>Click any block on the chip. Tap <b>ⓘ</b> to learn what that block is.</p>
+        </div>
+        <p class="legend">Illustrative schematic, not a die photo or to scale. AWS documents the blocks below and their counts where shown, but not where they sit on the package. Figures are AWS's own unless tagged <span class="tag tag-verify">PRESS</span>.</p>
+
+        <div data-explorer data-noun="blocks on the chip">
+          <div class="explorer-progress"><span class="count"></span><div class="bar" aria-hidden="true"><span></span></div></div>
+
+          <div class="explorer die-layout">
+            <div>
+              <div class="die-scroll">
+                <div class="package mi-pkg" role="group" aria-label="Trainium3 package schematic (illustrative)">
+                  <!-- Centre: 8 NeuronCores + their SRAM -->
+                  <div class="core a-core">
+                    <div class="fcd">
+                      <div class="die-label">8 × NeuronCore-v4</div>
+                      <div class="part" data-part="nc" data-role="compute">
+                        <button class="part-btn"><span class="n">NeuronCore</span><span class="s">315 TF MXFP8</span></button>
+                        <button class="info-btn" popovertarget="aws-concept-neuroncore" aria-label="What is a NeuronCore?">i</button>
+                      </div>
+                      <div class="part" data-part="nc" data-role="compute"><button class="part-btn"><span class="n">NeuronCore</span><span class="s">315 TF MXFP8</span></button></div>
+                      <div class="part" data-part="nc" data-role="compute"><button class="part-btn"><span class="n">NeuronCore</span><span class="s">315 TF MXFP8</span></button></div>
+                      <div class="part" data-part="nc" data-role="compute"><button class="part-btn"><span class="n">NeuronCore</span><span class="s">315 TF MXFP8</span></button></div>
+                      <div class="part" data-part="nc" data-role="compute"><button class="part-btn"><span class="n">NeuronCore</span><span class="s">315 TF MXFP8</span></button></div>
+                      <div class="part" data-part="nc" data-role="compute"><button class="part-btn"><span class="n">NeuronCore</span><span class="s">315 TF MXFP8</span></button></div>
+                      <div class="part" data-part="nc" data-role="compute"><button class="part-btn"><span class="n">NeuronCore</span><span class="s">315 TF MXFP8</span></button></div>
+                      <div class="part" data-part="nc" data-role="compute"><button class="part-btn"><span class="n">NeuronCore</span><span class="s">315 TF MXFP8</span></button></div>
+                      <div class="part fcd-bar" data-part="sram" data-role="cache">
+                        <button class="part-btn"><span class="n">On-chip SRAM</span><span class="s">32 MiB per core</span></button>
+                        <button class="info-btn" popovertarget="aws-concept-sram" aria-label="What is on-chip SRAM?">i</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- HBM3e: 4 stacks, drawn 2 per side (placement illustrative) -->
+                  <div class="hbm-col a-hbmL">
+                    <div class="part" data-part="hbm" data-role="mem">
+                      <button class="part-btn"><span class="n">HBM3e</span></button>
+                      <button class="info-btn" popovertarget="aws-concept-hbm" aria-label="What is HBM?">i</button>
+                    </div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM3e</span></button></div>
+                  </div>
+                  <div class="hbm-col a-hbmR">
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM3e</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM3e</span></button></div>
+                  </div>
+
+                  <!-- Links and data movers -->
+                  <div class="io-row a-iodT">
+                    <div class="part" data-part="nlink" data-role="io">
+                      <button class="part-btn"><span class="n">NeuronLink-v4</span><span class="s">Chip to chip</span></button>
+                      <button class="info-btn" popovertarget="aws-concept-scaleup" aria-label="What is a scale-up network?">i</button>
+                    </div>
+                    <div class="part" data-part="dma" data-role="sched">
+                      <button class="part-btn"><span class="n">DMA engines</span><span class="s">128 · plus CC-Cores</span></button>
+                      <button class="info-btn" popovertarget="aws-concept-dma" aria-label="What is a DMA engine?">i</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="die-caption">Illustrative. The 4 HBM stacks and 8 NeuronCores are documented counts; positions and compute-die layout are not shown by AWS.</p>
+            </div>
+
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">🔬</div>
+                <p><strong>Zoom into the silicon.</strong><br>Start with the NeuronCores, where the maths happens.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="nc" data-role="compute" hidden>
+                <span class="role">Compute <button class="info-btn inline" popovertarget="aws-concept-neuroncore" aria-label="What is a NeuronCore?">i</button></span>
+                <h3>NeuronCore-v4</h3>
+                <div class="count">×8 per chip · each core is a complete small processor with 4 engines</div>
+                <p class="why"><strong>Why it's special:</strong> instead of one big grid of identical units, each NeuronCore combines four different engines, each suited to a different kind of work. They run independently and software decides how to use them.</p>
+                <h4 class="sub">Key numbers (per core, dense)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">315 TF</span><span class="l">MXFP8 / MXFP4</span></div>
+                  <div class="stat"><span class="v">79 TF</span><span class="l">BF16 / FP16 / TF32</span></div>
+                  <div class="stat"><span class="v">20 TF</span><span class="l">FP32</span></div>
+                  <div class="stat"><span class="v">8</span><span class="l">cores = 2.52 PF per chip</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">The four engines</h4>
+                    <ul>
+                      <li><b>Tensor:</b> a systolic array for big matrix multiplies and convolutions. It is where almost all the FLOPS come from.</li>
+                      <li><b>Vector:</b> works on rows of numbers where each result needs many inputs, such as layer normalisation. 1.2 TFLOPS FP32.</li>
+                      <li><b>Scalar:</b> one input in, one result out, such as activation functions. 1.2 TFLOPS FP32.</li>
+                      <li><b>GPSIMD:</b> eight general-purpose 512-bit processors that run C/C++, for custom operations.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="sram">On-chip SRAM</button><button data-goto="dma">DMA engines</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="sram" data-role="cache" hidden>
+                <span class="role">On-chip memory <button class="info-btn inline" popovertarget="aws-concept-sram" aria-label="What is on-chip SRAM?">i</button></span>
+                <h3>On-chip SRAM (SBUF and PSUM)</h3>
+                <div class="count">32 MiB SBUF + 2 MiB PSUM per NeuronCore</div>
+                <p class="why"><strong>Why it's special:</strong> this memory is managed by software, not by hardware. The compiler or a kernel writer decides exactly what sits in it and when, so no cache logic guesses wrongly. That control is what the NKI kernel language gives programmers.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">32 MiB</span><span class="l">SBUF per core (up from 28 MiB)</span></div>
+                  <div class="stat"><span class="v">256 MiB</span><span class="l">SBUF per chip</span></div>
+                  <div class="stat"><span class="v">2 MiB</span><span class="l">PSUM per core (accumulator)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Holds tiles of data close to the engines, so they rarely wait for HBM.</li>
+                      <li>PSUM collects partial sums from the Tensor engine.</li>
+                      <li>New in v4: DMA can add into SRAM in a single transfer.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="nc">NeuronCores</button><button data-goto="hbm">HBM3e</button><button data-goto="dma">DMA engines</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="hbm" data-role="mem" hidden>
+                <span class="role">Memory <button class="info-btn inline" popovertarget="aws-concept-hbm" aria-label="What is HBM?">i</button></span>
+                <h3>HBM3e memory</h3>
+                <div class="count">4 stacks · 144 GiB total (36 GiB per stack, derived)</div>
+                <p class="why"><strong>Why it's special:</strong> Trainium3 gets 1.5× Trn2's capacity and 1.7× its bandwidth. For scale: Nvidia's Rubin has 288 GB of HBM4 and AMD's MI455X has 432 GB, so each of those holds roughly 2× to 3× as much per chip. Trainium3 makes up some of the gap by joining 144 chips in one fabric.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">144 GiB</span><span class="l">capacity</span></div>
+                  <div class="stat"><span class="v">4.9 TB/s</span><span class="l">bandwidth</span></div>
+                  <div class="stat"><span class="v">4</span><span class="l">stacks</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Holds model weights and the KV cache for every request in flight.</li>
+                      <li>One AWS page lists 4.7 TB/s instead of 4.9; we use the figure on AWS's main pages.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="sram">On-chip SRAM</button><button data-goto="dma">DMA engines</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="nlink" data-role="io" hidden>
+                <span class="role">Scale-up I/O <button class="info-btn inline" popovertarget="aws-concept-scaleup" aria-label="What is a scale-up network?">i</button></span>
+                <h3>NeuronLink-v4</h3>
+                <div class="count">4 links per chip · to NeuronSwitch-v1</div>
+                <p class="why"><strong>Why it's special:</strong> this is how one chip talks to the other 143 in an UltraServer, through the NeuronSwitch fabric in the "Inside the rack" tab. It replaced the neighbour-to-neighbour torus links of earlier generations.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2.56 TB/s</span><span class="l">per chip (other AWS pages say 2 TB/s)</span></div>
+                  <div class="stat"><span class="v">4</span><span class="l">NeuronLink-v4 links</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Carries the partial results that split-up models swap every step.</li>
+                      <li>Reportedly runs on PCIe Gen6 signalling <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="dma">DMA engines</button><button data-goto="sram">On-chip SRAM</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="dma" data-role="sched" hidden>
+                <span class="role">Data movement <button class="info-btn inline" popovertarget="aws-concept-dma" aria-label="What is a DMA engine?">i</button></span>
+                <h3>DMA engines and collective cores</h3>
+                <div class="count">128 DMA engines · CC-Cores for collectives</div>
+                <p class="why"><strong>Why it's special:</strong> moving data is half the job. DMA engines copy data between HBM, SRAM and other chips without using the compute engines. Separate collective cores run the "all chips combine their results" steps, so that communication overlaps with maths.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">128</span><span class="l">DMA engines</span></div>
+                  <div class="stat"><span class="v">4.9 TB/s</span><span class="l">DMA bandwidth, with inline compute</span></div>
+                  <div class="stat"><span class="v">16 or 20</span><span class="l">CC-Cores (AWS pages disagree)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Shapes traffic into 4 classes of service.</li>
+                      <li>Can add data into SRAM while copying it.</li>
+                      <li>AWS doesn't document a host (PCIe) or security block in the pages we used, so none is drawn.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="hbm">HBM3e</button><button data-goto="sram">On-chip SRAM</button><button data-goto="nlink">NeuronLink-v4</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards for the chip (ⓘ) ===================== -->
+          <div class="concept" id="aws-concept-neuroncore" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a NeuronCore?</h4></div>
+            <button class="close" popovertarget="aws-concept-neuroncore" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>A <b>NeuronCore</b> is AWS's unit of compute, like an SM on an Nvidia GPU. Each one bundles four engines (Tensor, Vector, Scalar and GPSIMD) with its own on-chip memory.</p>
+              <p>A <b>systolic array</b> is a grid of multiply units that pass data to their neighbours in a rhythm, which makes matrix maths very efficient.</p>
+              <div class="analogy"><b>Analogy:</b> a small kitchen with four stations: one for chopping in bulk, one for sauces, one for single ingredients and one open bench for improvising.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-sram" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is on-chip SRAM?</h4></div>
+            <button class="close" popovertarget="aws-concept-sram" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p><b>SRAM</b> is memory built into the chip itself. It is far faster than HBM but takes much more space per byte, so a chip has only tens or hundreds of megabytes.</p>
+              <p>On Trainium the programmer or compiler places data in it explicitly. It is not an automatic cache.</p>
+              <div class="analogy"><b>Analogy:</b> the countertop. Small, but everything you need right now is within reach, where HBM is the pantry down the hall.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-hbm" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is HBM?</h4></div>
+            <button class="close" popovertarget="aws-concept-hbm" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p><b>High-bandwidth memory</b> stacks DRAM chips on top of each other and places them right beside the processor, connected by thousands of tiny wires.</p>
+              <p>It is much faster than normal memory, but expensive and limited in size, so it is often the real bottleneck for AI.</p>
+              <div class="analogy"><b>Analogy:</b> a multi-storey car park next to the stadium, with a hundred exits instead of one.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="aws-concept-dma" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a DMA engine?</h4></div>
+            <button class="close" popovertarget="aws-concept-dma" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p><b>Direct memory access</b> engines copy blocks of data from one place to another on their own. The compute engines keep calculating while the copy happens.</p>
+              <p><b>Collectives</b> are group operations, such as "every chip adds up its results and shares the total". Dedicated cores handle them.</p>
+              <div class="analogy"><b>Analogy:</b> a forklift crew that restocks the kitchen so the cooks never stop to fetch ingredients.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 5: Software ecosystem ===================== -->
+      <div class="tab-panel" id="tab-sw" role="tabpanel" aria-labelledby="tab-sw-btn" hidden>
+        <h2>AWS's software stack: the Neuron SDK</h2>
+        <div class="stack">
+          <div class="layer"><span class="name">Access</span><span><b>EC2</b> Trn3 UltraServers · <b>Amazon Bedrock</b> (already serving production workloads on Trainium3) · orchestration with Slurm, EKS, ECS, Batch, Ray and SageMaker HyperPod</span></div>
+          <div class="layer"><span class="name">Serving</span><span><b>vLLM Neuron</b> (vLLM 0.29.0 in Neuron 2.33.0) · Hugging Face Optimum Neuron</span></div>
+          <div class="layer"><span class="name">Frameworks</span><span><b>TorchNeuron</b>, native PyTorch with eager mode and <code>torch.compile</code> (public beta) · JAX NeuronX · TorchTitan Neuron for training</span></div>
+          <div class="layer"><span class="name">Libraries</span><span><b>Neuron compiler</b> · collective operations (variable-size all-to-all now spans both racks) · <b>Neuron Explorer</b> profiler · Neuron Monitor</span></div>
+          <div class="layer"><span class="name">Kernels</span><span><b>NKI</b> (Neuron Kernel Interface) lets engineers write kernels in Python that target the engines directly · open-source <b>NKI Library</b> of ready-made kernels</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="v">2.33.1</span><span class="l">Neuron SDK, released 11 Nov 2026</span></div>
+          <div class="stat"><span class="v">Beta</span><span class="l">TorchNeuron native PyTorch</span></div>
+          <div class="stat"><span class="v">NKI 0.7.0</span><span class="l">kernel language version</span></div>
+          <div class="stat"><span class="v">2.5×</span><span class="l">vLLM throughput on GPT-OSS-120B vs Neuron 2.32 (AWS claim)</span></div>
+        </div>
+        <p class="note"><b>Why it matters:</b> an ASIC only helps if your model runs on it. AWS says developers can train and deploy on Trn3 without changing model code, and that the Neuron SDK is the way to reach the hardware directly. PyTorch/XLA is being replaced by native PyTorch, and NxD Inference stops supporting Trn2 and Trn3 in Neuron 2.34, with vLLM Neuron as the replacement. Expect some code migration if you used the older path.</p>
+        <p><a href="../software.html">Compare with other vendors <span aria-hidden="true">→</span></a></p>
+      </div>
+
+      <!-- ===================== Block 6: Claims ===================== -->
+      <div class="tab-panel" id="tab-claims" role="tabpanel" aria-labelledby="tab-claims-btn" hidden>
+        <h2>Headline claims vs Trainium2</h2>
+        <p class="legend">AWS compares Trn3 UltraServers with Trn2 UltraServers ("up to"), not with other vendors. Independent benchmarks were not found.</p>
+        <div class="claims">
+          <div class="claim card"><span class="value">4.4×</span><span>performance per UltraServer</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">3.9×</span><span>memory bandwidth per UltraServer</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">4×</span><span>performance per watt</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">&gt;5×</span><span>output tokens per megawatt on Bedrock, at similar latency per user</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">2×</span><span>chip-to-chip bandwidth from NeuronSwitch</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">Up to 3×</span><span>faster than Trainium2 on Bedrock</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">≈ GB300</span><span>about level with Nvidia GB300 NVL72 at FP8; Nvidia's rack is over 3× faster at FP4</span><span class="tag tag-verify">PRESS</span></div>
+          <div class="claim card"><span class="value">2 racks</span><span>for the 144-chip UltraServer, 18 blades each</span><span class="tag tag-verify">PRESS</span></div>
+        </div>
+        <h3>What's next: Trainium4</h3>
+        <p>Trainium4 is available only inside Amazon. No EC2 instance has been announced, and AWS has published no spec sheet. The public targets, set at re:Invent 2025, are at least 6× FP4 compute, 3× FP8 compute and 4× memory bandwidth versus Trainium3. AWS also said Trainium4 will use Nvidia's NVLink Fusion in MGX racks alongside Graviton and EFA. Delivery is reported for 2027 <span class="tag tag-verify">PRESS</span>.</p>
+      </div>
+    </section>
+
+    <nav class="pager" aria-label="Previous and next provider">
+      <a href="google-tpu.html"><span aria-hidden="true">←</span> Google TPU</a>
+      <a href="microsoft-maia.html">Microsoft <span aria-hidden="true">→</span></a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">Sources:
+      <a href="https://aws.amazon.com/ec2/instance-types/trn3/">AWS: EC2 Trn3 UltraServers</a> ·
+      <a href="https://aws.amazon.com/about-aws/whats-new/2025/12/amazon-ec2-trn3-ultraservers">AWS: What's New, Trn3 GA</a> ·
+      <a href="https://press.aboutamazon.com/2025/12/trainium3-ultraservers-now-available-enabling-customers-to-train-and-deploy-ai-models-faster-at-lower-cost">Amazon: Trainium3 press release</a> ·
+      <a href="https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium3.html">Neuron docs: Trainium3</a> ·
+      <a href="https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trn3-arch.html">Neuron docs: Trn3 UltraServer</a> ·
+      <a href="https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/neuron-core-v4.html">Neuron docs: NeuronCore-v4</a> ·
+      <a href="https://awsdocs-neuron.readthedocs-hosted.com/en/latest/nki/guides/architecture/trainium3_arch.html">Neuron docs: Trainium3 for NKI</a> ·
+      <a href="https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/whats-new.html">Neuron: What's New</a> ·
+      <a href="https://newsletter.semianalysis.com/p/aws-trainium3-deep-dive-a-potential">SemiAnalysis: Trainium3 deep dive</a> ·
+      <a href="https://techcrunch.com/2026/03/22/an-exclusive-tour-of-amazons-trainium-lab-the-chip-thats-won-over-anthropic-openai-even-apple/">TechCrunch: Trainium lab tour</a> ·
+      <a href="https://www.theregister.com/2025/12/02/amazon_nvidia_trainium/">The Register: Trainium3 and Trainium4</a>
+      <p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/rack-explorer.js"></script>
+<script src="../assets/js/glossary.js" defer></script>
+</body>
+</html>

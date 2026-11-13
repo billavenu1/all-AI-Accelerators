@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compare eight AI accelerators side by side | AI Accelerators 101</title>
+  <meta name="description" content="Flagship, camp, memory, rack scale, scale-up link, focus and status for Nvidia, AMD, Google, AWS, Microsoft, Qualcomm, Cerebras and Groq in one table.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Compare eight AI accelerators side by side | AI Accelerators 101">
+  <meta property="og:description" content="Flagship, camp, memory, rack scale, scale-up link, focus and status for Nvidia, AMD, Google, AWS, Microsoft, Qualcomm, Cerebras and Groq in one table.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="assets/inner.css">
+  <link rel="stylesheet" href="assets/side.css">
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="index.html">Home</a><a href="primer.html">Primer</a><a href="compare.html" aria-current="page">Compare</a><a href="software.html">Software</a></nav>
+      <a class="btn top__cta" href="index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="providers/nvidia.html"><span class="side__logo"><img src="assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="providers/amd.html"><span class="side__logo"><img src="assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="providers/google-tpu.html"><span class="side__logo"><img src="assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="providers/aws.html"><span class="side__logo"><img src="assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="providers/microsoft-maia.html"><span class="side__logo"><img src="assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="providers/qualcomm.html"><span class="side__logo"><img src="assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="providers/cerebras.html"><span class="side__logo"><img src="assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="providers/groq.html"><span class="side__logo"><img src="assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <section>
+      <h1>Side by side</h1>
+      <p class="lede">Tick the providers you want to compare.</p>
+
+      <div class="col-picker">
+        <label><input type="checkbox" value="nvidia" checked> Nvidia</label>
+        <label><input type="checkbox" value="amd" checked> AMD</label>
+        <label><input type="checkbox" value="google" checked> Google</label>
+        <label><input type="checkbox" value="aws" checked> AWS</label>
+        <label><input type="checkbox" value="microsoft" checked> Microsoft</label>
+        <label><input type="checkbox" value="qualcomm" checked> Qualcomm</label>
+        <label><input type="checkbox" value="cerebras" checked> Cerebras</label>
+        <label><input type="checkbox" value="groq" checked> Groq</label>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th data-col="nvidia">Nvidia</th>
+              <th data-col="amd">AMD</th>
+              <th data-col="google">Google</th>
+              <th data-col="aws">AWS</th>
+              <th data-col="microsoft">Microsoft</th>
+              <th data-col="qualcomm">Qualcomm</th>
+              <th data-col="cerebras">Cerebras</th>
+              <th data-col="groq">Groq</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Flagship</th>
+              <td data-col="nvidia">Vera Rubin NVL72</td>
+              <td data-col="amd">MI455X / Helios</td>
+              <td data-col="google">TPU 8t / 8i</td>
+              <td data-col="aws">Trainium3</td>
+              <td data-col="microsoft">Maia 300</td>
+              <td data-col="qualcomm">Dragonfly AI250</td>
+              <td data-col="cerebras">WSE-3 Turbo / CS-4</td>
+              <td data-col="groq">LPU (Groq 3)</td>
+            </tr>
+            <tr>
+              <th>Camp</th>
+              <td data-col="nvidia"><span class="camp camp-gpu">GPU</span></td>
+              <td data-col="amd"><span class="camp camp-gpu">GPU</span></td>
+              <td data-col="google"><span class="camp camp-asic">ASIC</span></td>
+              <td data-col="aws"><span class="camp camp-asic">ASIC</span></td>
+              <td data-col="microsoft"><span class="camp camp-asic">ASIC</span></td>
+              <td data-col="qualcomm"><span class="camp camp-spec">Specialist</span></td>
+              <td data-col="cerebras"><span class="camp camp-spec">Specialist</span></td>
+              <td data-col="groq"><span class="camp camp-spec">Specialist</span></td>
+            </tr>
+            <tr>
+              <th>Memory per chip</th>
+              <td data-col="nvidia">288 GB HBM4</td>
+              <td data-col="amd">432 GB HBM4</td>
+              <td data-col="google">288 GB HBM (8i)</td>
+              <td data-col="aws">144 GiB HBM3e</td>
+              <td data-col="microsoft">288 GB HBM4</td>
+              <td data-col="qualcomm">768 GB per card</td>
+              <td data-col="cerebras">44 GB SRAM per wafer</td>
+              <td data-col="groq">~500 MB SRAM</td>
+            </tr>
+            <tr>
+              <th>Rack scale</th>
+              <td data-col="nvidia">72 GPUs</td>
+              <td data-col="amd">72 GPUs</td>
+              <td data-col="google">Pods up to 9,600 chips (8t)</td>
+              <td data-col="aws">144 chips</td>
+              <td data-col="microsoft">96 per rack; 12,288 per superpod</td>
+              <td data-col="qualcomm">140 kW rack</td>
+              <td data-col="cerebras">3 wafers</td>
+              <td data-col="groq">256 LPUs</td>
+            </tr>
+            <tr>
+              <th>Scale-up link</th>
+              <td data-col="nvidia">NVLink 6</td>
+              <td data-col="amd">UALink over Ethernet</td>
+              <td data-col="google">ICI</td>
+              <td data-col="aws">NeuronLink-v4</td>
+              <td data-col="microsoft">Ethernet</td>
+              <td data-col="qualcomm">Not disclosed</td>
+              <td data-col="cerebras">Direct Wafer Links</td>
+              <td data-col="groq">Chip-to-chip</td>
+            </tr>
+            <tr>
+              <th>Focus</th>
+              <td data-col="nvidia">Training + inference</td>
+              <td data-col="amd">Training + inference</td>
+              <td data-col="google">Split by system</td>
+              <td data-col="aws">Training + inference</td>
+              <td data-col="microsoft">Inference</td>
+              <td data-col="qualcomm">Inference</td>
+              <td data-col="cerebras">Inference</td>
+              <td data-col="groq">Inference</td>
+            </tr>
+            <tr>
+              <th>Status</th>
+              <td data-col="nvidia">Shipping</td>
+              <td data-col="amd">Shipping</td>
+              <td data-col="google">8t/8i announced Apr 2026</td>
+              <td data-col="aws">Shipping</td>
+              <td data-col="microsoft">Announced; deployment from 2027 (Maia 200 in production)</td>
+              <td data-col="qualcomm">Samples H1 2027</td>
+              <td data-col="cerebras">Announced Aug 2026</td>
+              <td data-col="groq">Shipping via Nvidia</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>What you cannot compare fairly</h2>
+      <ul>
+        <li>FP4 and FP8 petaflops are different units.</li>
+        <li>"Effective" bandwidth (Qualcomm) and theoretical SRAM bandwidth (Cerebras) are not measured HBM bandwidth.</li>
+        <li>Per-chip, per-rack and per-pod figures get mixed freely in vendor material.</li>
+      </ul>
+    </section>
+
+    <!-- TODO: optional normalised bar charts (inline SVG) for memory per chip and rack scale -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap"><p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/compare.js"></script>
+<script src="assets/js/glossary.js" defer></script>
+</body>
+</html>

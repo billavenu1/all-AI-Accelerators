@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AMD Helios (MI455X): the rack taken apart | AI Accelerators 101</title>
+  <meta name="description" content="Take AMD's Helios rack apart piece by piece, from its 72 MI455X GPUs and 18 EPYC Venice CPUs down to the chiplets inside one MI455X.">
+  <meta property="og:title" content="AMD Helios (MI455X): the rack taken apart | AI Accelerators 101">
+  <meta property="og:description" content="Take AMD's Helios rack apart piece by piece, from its 72 MI455X GPUs and 18 EPYC Venice CPUs down to the chiplets inside one MI455X.">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="../assets/inner.css">
+  <link rel="stylesheet" href="../assets/side.css">
+  <style>
+  /* Page-only adjustments for the v2 shell. Lives in this page, so it cannot reach other pages. */
+  /* sticky bars clear the fixed header (and the provider row under 1024px) */
+  .tabs { top: calc(var(--top-h) + var(--side-row, 0px) + 8px); }
+  .detail-col { top: calc(var(--top-h) + var(--side-row, 0px) + 76px); container-type: inline-size; }
+  @media (max-width: 639px) {
+    .tabs { flex-wrap: nowrap; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+    .tabs button { flex: none; padding: 8px 11px; font-size: .86rem; }
+  }
+  /* headings moved down one level for a clean outline; same look as before */
+  .rack-col h3.rack-h { margin: 12px 0 6px; font: 500 .78rem/1.6 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .rack-col h3.rack-h:first-child { margin-top: 0; }
+  .part-detail h4.dh { margin: 14px 0 8px; font: 600 .78rem var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .part-detail .why + h4.dh, .part-detail .stats + .detail-split h4.dh { margin-top: 12px; }
+  /* rack frame in the neutral dark palette instead of navy */
+  .rack-frame { background: linear-gradient(180deg, #202020, #171717); border-color: var(--border); }
+  .rack-frame .part-btn { background: var(--surface-2); border-color: #3a3a3a; border-left-color: var(--part-color); color: var(--text); }
+  .rack-frame .part-btn .s { color: #b8b8b8; }
+  .rack-frame .part.active .part-btn { background: color-mix(in srgb, var(--part-color) 24%, var(--surface-2)); }
+  /* chip schematic: compute blocks in the GPU green rather than violet */
+  .package .part { --part-color: var(--r-tray); }
+  .package .part[data-role="compute"], .part-detail[data-role="compute"] { --part-color: #3fae6a; }
+  .package .part-btn:only-child { padding-right: 7px; }
+  .die-scroll:focus-visible { outline-offset: 4px; border-radius: 14px; }
+  /* chip tab: stack schematic and details when the column beside the provider bar is narrow */
+  .explorer.die-layout { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  @media (max-width: 1365px) {
+    .explorer.die-layout { grid-template-columns: minmax(0, 1fr); }
+    .die-layout .detail-col { position: static; max-height: none; overflow: visible; }
+  }
+  /* detail cards adapt to the width of their own column */
+  @container (max-width: 560px) { .part-detail .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @container (max-width: 400px) { .detail-split { grid-template-columns: minmax(0, 1fr); } }
+  .beyond.beyond--one { grid-template-columns: minmax(0, 1fr); }
+  #tab-sw > .stats { margin-top: 20px; }
+  #tab-sw > .note { margin-top: 16px; }
+  </style>
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="../index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="../index.html">Home</a><a href="../primer.html">Primer</a><a href="../compare.html">Compare</a><a href="../software.html">Software</a></nav>
+      <a class="btn top__cta" href="../index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="../providers/nvidia.html"><span class="side__logo"><img src="../assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="../providers/amd.html" aria-current="page"><span class="side__logo"><img src="../assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="../providers/google-tpu.html"><span class="side__logo"><img src="../assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="../providers/aws.html"><span class="side__logo"><img src="../assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="../providers/microsoft-maia.html"><span class="side__logo"><img src="../assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="../providers/qualcomm.html"><span class="side__logo"><img src="../assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="../providers/cerebras.html"><span class="side__logo"><img src="../assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="../providers/groq.html"><span class="side__logo"><img src="../assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <!-- Block 1: Available series -->
+    <section class="provider-hero">
+      <span class="camp camp-gpu">Merchant GPU</span>
+      <h1>AMD: <span class="grad-text">Helios (MI455X + EPYC Venice)</span></h1>
+      <p class="lede">AMD's first rack-scale system: 72 MI455X GPUs and 18 EPYC Venice CPUs, wired together with open standards instead of proprietary links. Launched in July 2026, with volume shipments from Q3.</p>
+      <div class="timeline" role="group" aria-label="Available series">
+        <span class="gen">MI250X</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">MI300X</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">MI325X</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">MI350X</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">MI355X</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen latest">MI455X / Helios</span>
+      </div>
+    </section>
+
+    <!-- Block 2: Latest flagship at a glance -->
+    <section>
+      <div class="stats">
+        <div class="stat"><span class="v">72 + 18</span><span class="l">MI455X GPUs + Venice CPUs</span></div>
+        <div class="stat"><span class="v">31 TB</span><span class="l">HBM4 memory in the rack</span></div>
+        <div class="stat"><span class="v">2.9 EF</span><span class="l">FP4 compute</span></div>
+        <div class="stat"><span class="v">+50%</span><span class="l">memory per GPU vs Vera Rubin (AMD claim)</span></div>
+      </div>
+    </section>
+
+    <!-- Blocks 3–6 as tabs -->
+    <section>
+      <div class="tabs" role="tablist" aria-label="Helios sections">
+        <button role="tab" id="tabbtn-hw" aria-selected="true" aria-controls="tab-hw">Inside the rack</button>
+        <button role="tab" id="tabbtn-chip" aria-selected="false" aria-controls="tab-chip">The GPU</button>
+        <button role="tab" id="tabbtn-sw" aria-selected="false" aria-controls="tab-sw">Software</button>
+        <button role="tab" id="tabbtn-claims" aria-selected="false" aria-controls="tab-claims">Claims</button>
+      </div>
+
+      <!-- ===================== Block 4: Hardware ecosystem ===================== -->
+      <div class="tab-panel" id="tab-hw" role="tabpanel" aria-labelledby="tabbtn-hw">
+        <div class="section-head">
+          <h2>Take the rack apart</h2>
+          <p>Click a component to learn why it's special. Tap <b>ⓘ</b> to learn what that kind of chip is.</p>
+        </div>
+        <p class="legend">Figures are AMD's own unless tagged <span class="tag tag-verify">PRESS</span> (reported by trade press, not confirmed by AMD).</p>
+
+        <div data-explorer data-noun="components of the rack">
+          <div class="explorer-progress"><span class="count" aria-live="polite"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer">
+            <!-- ---------- Left: the rack ---------- -->
+            <div class="rack-col">
+              <h3 class="rack-h">The rack · Open Rack Wide (double-width)</h3>
+              <div class="rack-frame">
+                <div class="part" data-part="power" data-role="power">
+                  <button class="part-btn"><span class="n">Power &amp; liquid cooling</span><span class="s">50 V busbar · blind-mate liquid connectors</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="amd-concept-cooling" aria-label="What is rack power and liquid cooling?">i</button>
+                </div>
+                <div class="part" data-part="tray" data-role="tray">
+                  <button class="part-btn"><span class="n">Compute trays ×18</span><span class="s">4 GPUs + 1 CPU in each</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="amd-concept-tray" aria-label="What is a compute tray?">i</button>
+                </div>
+                <div class="part" data-part="switch" data-role="net">
+                  <button class="part-btn"><span class="n">Scale-up switch trays ×6</span><span class="s">UALink over Ethernet</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="amd-concept-scaleup" aria-label="What is a scale-up switch?">i</button>
+                </div>
+              </div>
+
+              <h3 class="rack-h">Inside one compute tray</h3>
+              <div class="tray-zoom">
+                <div class="part" data-part="gpu" data-role="gpu">
+                  <button class="part-btn"><span class="n">MI455X GPU</span><span class="s">×4 per tray</span></button>
+                  <button class="info-btn" popovertarget="amd-concept-gpu" aria-label="What is a GPU?">i</button>
+                </div>
+                <div class="part" data-part="cpu" data-role="cpu">
+                  <button class="part-btn"><span class="n">EPYC Venice</span><span class="s">×1 per tray</span></button>
+                  <button class="info-btn" popovertarget="amd-concept-cpu" aria-label="What is a host CPU?">i</button>
+                </div>
+                <div class="part" data-part="vulcano" data-role="net">
+                  <button class="part-btn"><span class="n">Pensando Vulcano</span><span class="s">AI NIC ×12</span></button>
+                  <button class="info-btn" popovertarget="amd-concept-nic" aria-label="What is an AI NIC?">i</button>
+                </div>
+                <div class="part" data-part="salina" data-role="dpu">
+                  <button class="part-btn"><span class="n">Pensando Salina</span><span class="s">DPU ×1</span></button>
+                  <button class="info-btn" popovertarget="amd-concept-dpu" aria-label="What is a DPU?">i</button>
+                </div>
+              </div>
+
+              <h3 class="rack-h">Beyond the rack</h3>
+              <div class="beyond beyond--one">
+                <div class="part" data-part="scaleout" data-role="net">
+                  <button class="part-btn"><span class="n">Scale-out: Ultra Ethernet</span><span class="s">Links Helios racks into clusters</span></button>
+                  <button class="info-btn" popovertarget="amd-concept-scaleout" aria-label="What is a scale-out network?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ---------- Right: detail panels ---------- -->
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">👈</div>
+                <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="power" data-role="power" hidden>
+                <span class="role">Rack infrastructure <button class="info-btn inline" popovertarget="amd-concept-cooling" aria-label="What is liquid cooling?">i</button></span>
+                <h3>Power &amp; liquid cooling</h3>
+                <div class="count">Meta's Open Rack Wide design, shared through the Open Compute Project</div>
+                <p class="why"><strong>Why it's special:</strong> Helios isn't built on a proprietary rack. It uses Open Rack Wide, a double-width design Meta contributed to the Open Compute Project in 2025. The extra width leaves room for big liquid manifolds and power busbars, and any OCP-compatible data centre can take it.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">225–245 kW</span><span class="l">rack power</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">1.2 m</span><span class="l">wide, 44 OU tall</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">~385 L/min</span><span class="l">coolant flow</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">~5,000 lb</span><span class="l">pre-launch weight estimate</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does here</h4>
+                    <ul>
+                      <li>A liquid-cooled 50 V busbar runs power down the rack.</li>
+                      <li>Trays plug into coolant and power with blind-mate connectors at the back: slide in, and they connect.</li>
+                      <li>Schneider Electric and AMD publish a reference design for sites up to 246 kW per rack.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="tray">Compute trays</button><button data-goto="switch">Switch trays</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="tray" data-role="tray" hidden>
+                <span class="role">Building block <button class="info-btn inline" popovertarget="amd-concept-tray" aria-label="What is a compute tray?">i</button></span>
+                <h3>Compute tray</h3>
+                <div class="count">×18 per rack · "open rack wide-aligned 4-GPU compute trays" (AMD)</div>
+                <p class="why"><strong>Why it's special:</strong> each tray pairs four GPUs with one CPU, half the CPU count of Nvidia's 2-GPUs-per-CPU design. AMD spends that space on networking: twelve 800G NICs per tray, three for every GPU.</p>
+                <h4 class="dh">Key numbers (per tray)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">4 + 1</span><span class="l">GPUs + CPU</span></div>
+                  <div class="stat"><span class="v">1.7 TB</span><span class="l">HBM4 (4 × 432 GB)</span></div>
+                  <div class="stat"><span class="v">12 + 1</span><span class="l">Vulcano NICs + Salina DPU</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">~170 lb</span><span class="l">per tray</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What else is inside</h4>
+                    <ul>
+                      <li>1 TB of DDR5 for the CPU (16 × 64 GB) <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>5 E1.S NVMe drives for local storage <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>About 161 PF of FP4 compute (4 × 40.26 PF).</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Look inside</h4>
+                    <div class="links-to"><button data-goto="gpu">MI455X</button><button data-goto="cpu">Venice</button><button data-goto="vulcano">Vulcano</button><button data-goto="salina">Salina</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="switch" data-role="net" hidden>
+                <span class="role">Scale-up network <button class="info-btn inline" popovertarget="amd-concept-scaleup" aria-label="What is a scale-up switch?">i</button></span>
+                <h3>Scale-up switch trays</h3>
+                <div class="count">×6 trays · 2 Broadcom Tomahawk 6 chips each <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> instead of a proprietary fabric like NVLink, Helios runs the open UALink protocol over standard Ethernet switch chips ("UALink over Ethernet"). Each GPU spreads its links across 12 separate switch planes, so if one switch fails, a GPU loses only 1/12 of its bandwidth instead of dropping out.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">3.6 TB/s</span><span class="l">per GPU (36 × 400 Gb/s links)</span></div>
+                  <div class="stat"><span class="v">260 TB/s</span><span class="l">across the rack</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">12</span><span class="l">switch chips, 102.4 Tb/s each</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">AES-256</span><span class="l">encryption at line rate</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does here</h4>
+                    <ul>
+                      <li>Lets all 72 GPUs share memory and split one model as a single system, in one switch hop.</li>
+                      <li>Runs the open-source SONiC switch OS with AMD's Fabric Manager <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>HPE's version uses Juniper switches, showing the vendor choice an open fabric allows.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="gpu">Every MI455X</button><button data-goto="tray">Compute trays</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="gpu" data-role="gpu" hidden>
+                <span class="role">Accelerator <button class="info-btn inline" popovertarget="amd-concept-gpu" aria-label="What is a GPU?">i</button></span>
+                <h3>Instinct MI455X</h3>
+                <div class="count">×72 per rack · CDNA 5 · 320 billion transistors</div>
+                <p class="why"><strong>Why it's special:</strong> memory. With 432 GB of HBM4 it holds 50% more than a Rubin GPU, so bigger models and longer contexts fit on fewer GPUs. AMD's final bandwidth figure of 23.3 TB/s also came in above its own earlier projection. It is built from 12 chiplets; open "The GPU" tab to explore them.</p>
+                <h4 class="dh">Key numbers (per GPU)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">432 GB</span><span class="l">HBM4 (Rubin: 288 GB)</span></div>
+                  <div class="stat"><span class="v">23.3 TB/s</span><span class="l">memory bandwidth</span></div>
+                  <div class="stat"><span class="v">40 PF</span><span class="l">MXFP4</span></div>
+                  <div class="stat"><span class="v">20 PF</span><span class="l">MXFP8</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does here</h4>
+                    <ul>
+                      <li>Runs training and inference maths on 256 compute units <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Compute chiplets on TSMC 2nm, I/O chiplets on 3nm.</li>
+                      <li>AMD hasn't published its power draw; press estimates exceed 2 kW <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="switch">Scale-up switches</button><button data-goto="cpu">Venice CPU</button><button data-goto="vulcano">3 Vulcano NICs</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="cpu" data-role="cpu" hidden>
+                <span class="role">Host CPU <button class="info-btn inline" popovertarget="amd-concept-cpu" aria-label="What is a host CPU?">i</button></span>
+                <h3>EPYC "Venice"</h3>
+                <div class="count">×18 per rack · 6th-gen EPYC · Zen 6 on TSMC 2nm</div>
+                <p class="why"><strong>Why it's special:</strong> AMD designs the CPU, the GPU, the NICs and the DPU in this rack, the only merchant chip vendor besides Nvidia to do so. Venice is also the first server CPU with PCIe Gen6, and AMD claims over 70% more performance and efficiency than the previous Turin generation.</p>
+                <h4 class="dh">Key numbers (Venice family)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">96 / 256</span><span class="l">max cores: Zen 6 / dense Zen 6c</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">1.6 TB/s</span><span class="l">memory bandwidth, 16 channels</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">5 GHz</span><span class="l">peak clock (Zen 6)</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">70%+</span><span class="l">gain vs Turin (AMD claim)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does here</h4>
+                    <ul>
+                      <li>Runs the tray's OS and feeds four GPUs; Helios reportedly uses a 96-core part <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Talks to each GPU over a 256 GB/s Infinity Fabric link <span class="tag tag-verify">PRESS</span>, far less than Nvidia's 1.8 TB/s CPU–GPU link.</li>
+                      <li>PCIe Gen6 and CXL 3.1 for NICs, storage and memory expansion.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="gpu">4 MI455X</button><button data-goto="salina">Salina DPU</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="vulcano" data-role="net" hidden>
+                <span class="role">AI NIC <button class="info-btn inline" popovertarget="amd-concept-nic" aria-label="What is an AI NIC?">i</button></span>
+                <h3>Pensando Vulcano</h3>
+                <div class="count">12 per tray · 3 per GPU · 800 Gb/s each</div>
+                <p class="why"><strong>Why it's special:</strong> with three NICs per GPU, each MI455X gets up to 2.4 Tb/s to the rest of the cluster (Rubin gets 1.6 Tb/s). Vulcano is built for the Ultra Ethernet standard and is fully programmable, so its transport can be updated as the standard evolves.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">800 Gb/s</span><span class="l">per NIC</span></div>
+                  <div class="stat"><span class="v">2.4 Tb/s</span><span class="l">per GPU</span></div>
+                  <div class="stat"><span class="v">43 TB/s</span><span class="l">scale-out per rack</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">+50%</span><span class="l">scale-out vs Vera Rubin (AMD claim)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does here</h4>
+                    <ul>
+                      <li>Moves data between Helios racks for training and large inference jobs.</li>
+                      <li>"UEC-ready" RDMA plus an MRC transport (AMD brief).</li>
+                      <li>Previewed with UEC 1.0 support and PCIe Gen6 and UALink host interfaces <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="gpu">MI455X</button><button data-goto="scaleout">Ultra Ethernet fabric</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="salina" data-role="dpu" hidden>
+                <span class="role">DPU <button class="info-btn inline" popovertarget="amd-concept-dpu" aria-label="What is a DPU?">i</button></span>
+                <h3>Pensando Salina 400</h3>
+                <div class="count">1 per tray · third-generation Pensando DPU</div>
+                <p class="why"><strong>Why it's special:</strong> Salina comes from AMD's Pensando acquisition, whose DPUs were designed for cloud providers. Its 232 P4 engines can be reprogrammed for new network protocols, and it can be upgraded live without interrupting traffic.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2 × 400G</span><span class="l">Ethernet ports</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">232</span><span class="l">programmable P4 engines</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">16</span><span class="l">Arm Neoverse N1 cores</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">128 GB</span><span class="l">DDR5, max</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does here</h4>
+                    <ul>
+                      <li>Runs the front-end network: the connection to users, storage and the rest of the data centre.</li>
+                      <li>Encrypts traffic and takes networking and security work off the Venice CPU.</li>
+                      <li>Unlike Nvidia's BlueField-4, AMD hasn't given it a dedicated KV-cache storage role.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="cpu">Venice CPU</button><button data-goto="scaleout">Data-centre network</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="scaleout" data-role="net" hidden>
+                <span class="role">Scale-out network <button class="info-btn inline" popovertarget="amd-concept-scaleout" aria-label="What is a scale-out network?">i</button></span>
+                <h3>Scale-out: Ultra Ethernet</h3>
+                <div class="count">Outside the rack · any vendor's Ethernet switches</div>
+                <p class="why"><strong>Why it's special:</strong> AMD doesn't sell its own cluster switches. Helios racks connect over standard Ethernet tuned for AI by the Ultra Ethernet Consortium, which AMD helped found. Customers can use switches from Broadcom, Cisco, Arista, Juniper or others, where Nvidia steers buyers to its own Spectrum-X or InfiniBand.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2.4 Tb/s</span><span class="l">per GPU into the fabric</span></div>
+                  <div class="stat"><span class="v">43 TB/s</span><span class="l">per rack</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">Who is building on it</h4>
+                    <ul>
+                      <li>OpenAI: Helios is phase 1 of a 6 GW deal, online from H2 2026.</li>
+                      <li>Meta, Anthropic, Oracle and Microsoft Azure have also announced MI455X-generation deployments <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="vulcano">Vulcano NICs</button><button data-goto="salina">Salina DPU</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards (ⓘ) ===================== -->
+          <div class="concept" id="amd-concept-cooling" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Rack power &amp; liquid cooling</h4></div>
+            <button class="close" popovertarget="amd-concept-cooling" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A modern AI rack draws as much power as a hundred or more homes, and almost all of it becomes heat, far more than fans can remove.</p>
+              <p><b>Direct liquid cooling</b> pumps coolant through plates on each chip. A <b>busbar</b> is a thick metal rail that carries power down the rack instead of hundreds of cables.</p>
+              <div class="analogy"><b>Analogy:</b> a car engine. Air cooling works for a lawnmower; a racing engine needs a radiator.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-tray" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a compute tray?</h4></div>
+            <button class="close" popovertarget="amd-concept-tray" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A tray is a flat drawer that slides into the rack, holding a few accelerators, their CPU and network chips on one board.</p>
+              <p>Racks are built from identical trays, so a broken one can be swapped like a battery.</p>
+              <div class="analogy"><b>Analogy:</b> books on a shelf. The rack is the shelf, each tray is a book, and you can pull one out without moving the rest.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-scaleup" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a scale-up network?</h4></div>
+            <button class="close" popovertarget="amd-concept-scaleup" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Big models are split across many GPUs that must swap partial results constantly. A <b>scale-up</b> network links GPUs inside one rack with very high bandwidth and low delay so they act like one big GPU.</p>
+              <p><b>UALink</b> is an open industry standard for this, backed by AMD, Intel, Google, Microsoft, Meta and others, as an alternative to Nvidia's NVLink.</p>
+              <div class="analogy"><b>Analogy:</b> people in one open-plan room who can just talk, versus emailing another office (scale-out).</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-gpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a GPU?</h4></div>
+            <button class="close" popovertarget="amd-concept-gpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A GPU runs thousands of simple calculations in parallel. AI is mostly multiplying huge grids of numbers, which is exactly that kind of work.</p>
+              <p>Next to it sits <b>HBM</b>, stacked memory that holds the model. How fast the GPU reads HBM often limits speed more than the maths does.</p>
+              <div class="analogy"><b>Analogy:</b> a CPU is a few expert chefs; a GPU is a thousand line cooks each chopping one vegetable at the same time.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-cpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a host CPU?</h4></div>
+            <button class="close" popovertarget="amd-concept-cpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Accelerators can't run an operating system. A <b>host CPU</b> boots the machine, loads data, launches work onto the GPUs and handles everything that isn't matrix maths, including the tool calls and code execution agents rely on.</p>
+              <div class="analogy"><b>Analogy:</b> the head chef who reads the orders and hands tasks to the line cooks.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-nic" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is an AI NIC?</h4></div>
+            <button class="close" popovertarget="amd-concept-nic" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A <b>network interface card</b> connects a computer to the network. An <b>AI NIC</b> is built for GPU clusters: huge bandwidth per GPU, hardware congestion control, and the ability to move data straight into GPU memory (RDMA) without involving the CPU.</p>
+              <div class="analogy"><b>Analogy:</b> a dedicated loading dock for each warehouse aisle, instead of one front door for the whole building.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-dpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a DPU?</h4></div>
+            <button class="close" popovertarget="amd-concept-dpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A <b>data processing unit</b> is a network card with its own CPU cores and memory. It takes over the data centre's "plumbing": networking, storage access, encryption, firewalls and keeping customers isolated.</p>
+              <p><b>P4</b> is a language for programming how network hardware handles packets, so a P4-based DPU can learn new protocols through software.</p>
+              <div class="analogy"><b>Analogy:</b> a building's security desk and mailroom. Residents (the GPUs) never deal with deliveries or visitors themselves.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-scaleout" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a scale-out network?</h4></div>
+            <button class="close" popovertarget="amd-concept-scaleout" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Scale-out</b> networks connect racks to each other so thousands of racks can work on one model.</p>
+              <p><b>Ultra Ethernet</b> is a new standard from the Ultra Ethernet Consortium that adds AI-friendly features (smarter congestion control, packet spraying, faster recovery) to ordinary Ethernet.</p>
+              <div class="analogy"><b>Analogy:</b> the motorway between cities, while scale-up is the streets inside one city.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 3: The accelerator chip ===================== -->
+      <div class="tab-panel" id="tab-chip" role="tabpanel" aria-labelledby="tabbtn-chip" hidden>
+        <div class="section-head">
+          <h2>Inside the MI455X</h2>
+          <p>Click any block on the chip. Tap <b>ⓘ</b> to learn what that block is.</p>
+        </div>
+        <p class="legend">Simplified schematic based on press descriptions, not a die photo or to scale. Figures are AMD's own unless tagged <span class="tag tag-verify">PRESS</span>.</p>
+
+        <div data-explorer data-noun="blocks on the chip">
+          <div class="explorer-progress"><span class="count" aria-live="polite"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer die-layout">
+            <div>
+              <div class="die-scroll" role="region" tabindex="0" aria-label="MI455X package schematic">
+                <div class="package mi-pkg">
+                  <!-- Centre: 2 fabric-and-cache dies, 4 XCDs on each -->
+                  <div class="core a-core">
+                    <div class="fcd">
+                      <div class="die-label">Fabric &amp; cache die 1</div>
+                      <div class="part" data-part="xcd" data-role="compute">
+                        <button class="part-btn"><span class="n">XCD</span><span class="s">32 CUs</span></button>
+                        <button class="info-btn" popovertarget="amd-concept-xcd" aria-label="What is an XCD?">i</button>
+                      </div>
+                      <div class="part" data-part="xcd" data-role="compute"><button class="part-btn"><span class="n">XCD</span><span class="s">32 CUs</span></button></div>
+                      <div class="part fcd-bar" data-part="fcd" data-role="cache">
+                        <button class="part-btn"><span class="n">96 MB L2 · fabric</span></button>
+                        <button class="info-btn" popovertarget="amd-concept-cache" aria-label="What is the fabric and cache die?">i</button>
+                      </div>
+                      <div class="part" data-part="xcd" data-role="compute"><button class="part-btn"><span class="n">XCD</span><span class="s">32 CUs</span></button></div>
+                      <div class="part" data-part="xcd" data-role="compute"><button class="part-btn"><span class="n">XCD</span><span class="s">32 CUs</span></button></div>
+                    </div>
+                    <div class="fcd">
+                      <div class="die-label">Fabric &amp; cache die 2</div>
+                      <div class="part" data-part="xcd" data-role="compute"><button class="part-btn"><span class="n">XCD</span><span class="s">32 CUs</span></button></div>
+                      <div class="part" data-part="xcd" data-role="compute"><button class="part-btn"><span class="n">XCD</span><span class="s">32 CUs</span></button></div>
+                      <div class="part fcd-bar" data-part="fcd" data-role="cache"><button class="part-btn"><span class="n">96 MB L2 · fabric</span></button></div>
+                      <div class="part" data-part="xcd" data-role="compute"><button class="part-btn"><span class="n">XCD</span><span class="s">32 CUs</span></button></div>
+                      <div class="part" data-part="xcd" data-role="compute"><button class="part-btn"><span class="n">XCD</span><span class="s">32 CUs</span></button></div>
+                    </div>
+                  </div>
+
+                  <!-- HBM4: 6 stacks each side -->
+                  <div class="hbm-col a-hbmL">
+                    <div class="part" data-part="hbm" data-role="mem">
+                      <button class="part-btn"><span class="n">HBM4</span></button>
+                      <button class="info-btn" popovertarget="amd-concept-hbm" aria-label="What is HBM?">i</button>
+                    </div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                  </div>
+                  <div class="hbm-col a-hbmR">
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                  </div>
+
+                  <!-- I/O dies with their external links -->
+                  <div class="io-row a-iodT">
+                    <div class="part" data-part="iod" data-role="sched">
+                      <button class="part-btn"><span class="n">I/O die</span></button>
+                      <button class="info-btn" popovertarget="amd-concept-iod" aria-label="What is an I/O die?">i</button>
+                    </div>
+                    <div class="part" data-part="ualoe" data-role="io">
+                      <button class="part-btn"><span class="n">Scale-up links</span><span class="s">UALoE</span></button>
+                      <button class="info-btn" popovertarget="amd-concept-scaleup" aria-label="What is a scale-up network?">i</button>
+                    </div>
+                  </div>
+                  <div class="io-row a-iodB">
+                    <div class="part" data-part="iod" data-role="sched"><button class="part-btn"><span class="n">I/O die</span></button></div>
+                    <div class="part" data-part="host" data-role="io">
+                      <button class="part-btn"><span class="n">Host link</span><span class="s">Infinity Fabric</span></button>
+                      <button class="info-btn" popovertarget="amd-concept-host" aria-label="What is the CPU host link?">i</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="die-caption">12 chiplets plus 12 HBM4 stacks in one CoWoS-L package <span class="tag tag-verify">PRESS</span>.</p>
+            </div>
+
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">🔬</div>
+                <p><strong>Zoom into the silicon.</strong><br>Start with the green XCDs, where the maths happens.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="xcd" data-role="compute" hidden>
+                <span class="role">Compute <button class="info-btn inline" popovertarget="amd-concept-xcd" aria-label="What is an XCD?">i</button></span>
+                <h3>Accelerator complex dies (XCDs)</h3>
+                <div class="count">8 chiplets on TSMC 2nm · 32 active CUs each <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> AMD builds the GPU from small compute chiplets instead of a few huge dies. Small dies yield better on a brand-new 2nm process, and AMD can reuse them across products. CDNA 5 adds native support for the open OCP "MX" number formats used for 4-, 6- and 8-bit AI maths.</p>
+                <h4 class="dh">Key numbers (whole GPU)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">256</span><span class="l">active compute units</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">40.26 PF</span><span class="l">MXFP4</span></div>
+                  <div class="stat"><span class="v">20.13 PF</span><span class="l">MXFP8 / MXFP6</span></div>
+                  <div class="stat"><span class="v">5.03 PF</span><span class="l">FP16 / BF16</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does</h4>
+                    <ul>
+                      <li>Each compute unit has matrix cores for AI maths and vector units for everything else.</li>
+                      <li>Each XCD reportedly has 34 CUs on silicon with 2 switched off, so slightly flawed dies can still be used <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Also does 315 TFLOPS of full-precision FP32.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="fcd">Fabric &amp; cache die</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="fcd" data-role="cache" hidden>
+                <span class="role">Fabric &amp; cache <button class="info-btn inline" popovertarget="amd-concept-cache" aria-label="What is the fabric and cache die?">i</button></span>
+                <h3>Fabric &amp; cache dies (FCDs)</h3>
+                <div class="count">2 chiplets on TSMC 3nm · 4 XCDs each</div>
+                <p class="why"><strong>Why it's special:</strong> these two dies hold a combined 192 MB of L2 cache, a very large on-chip buffer between the compute chiplets and HBM. They link all eight XCDs fast enough that software sees one GPU with one pool of memory, not eight small GPUs.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">192 MB</span><span class="l">L2 cache (96 MB per die)</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">54 TB/s</span><span class="l">L2 bandwidth</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">1</span><span class="l">memory domain across all 8 XCDs</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does</h4>
+                    <ul>
+                      <li>Replaces MI355X's separate "Infinity Cache": the big cache is now the L2 itself <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>The die-to-die bandwidth between the two FCDs isn't published.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="xcd">XCDs</button><button data-goto="hbm">HBM4</button><button data-goto="iod">I/O dies</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="hbm" data-role="mem" hidden>
+                <span class="role">Memory <button class="info-btn inline" popovertarget="amd-concept-hbm" aria-label="What is HBM?">i</button></span>
+                <h3>HBM4 memory</h3>
+                <div class="count">12 stacks × 36 GB <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> twelve stacks is unusually many (Nvidia's Blackwell uses eight), and it is the main reason MI455X carries 432 GB. AMD has made memory capacity its signature since MI300X, betting that inference is limited by memory more than by maths.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">432 GB</span><span class="l">capacity (+50% vs Rubin)</span></div>
+                  <div class="stat"><span class="v">23.3 TB/s</span><span class="l">bandwidth (final; 19.6 was a projection)</span></div>
+                  <div class="stat"><span class="v">2,048-bit</span><span class="l">interface per stack</span></div>
+                  <div class="stat"><span class="v">1.7 PB/s</span><span class="l">across the rack</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does</h4>
+                    <ul>
+                      <li>Holds model weights and the KV cache for every request in flight.</li>
+                      <li>AMD claims 6% more rack memory bandwidth than Vera Rubin NVL72.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="fcd">Fabric &amp; cache dies</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="iod" data-role="sched" hidden>
+                <span class="role">I/O <button class="info-btn inline" popovertarget="amd-concept-iod" aria-label="What is an I/O die?">i</button></span>
+                <h3>I/O dies</h3>
+                <div class="count">2 chiplets on TSMC 3nm <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it matters:</strong> the circuits that drive signals off the chip don't shrink well on new processes, so AMD keeps them on separate, cheaper 3nm dies and spends the expensive 2nm silicon only on compute.</p>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does</h4>
+                    <ul>
+                      <li>Drives the 36 scale-up links to the switch trays.</li>
+                      <li>Drives the host link to the Venice CPU.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="ualoe">Scale-up links</button><button data-goto="host">Host link</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="ualoe" data-role="io" hidden>
+                <span class="role">Scale-up I/O <button class="info-btn inline" popovertarget="amd-concept-scaleup" aria-label="What is a scale-up network?">i</button></span>
+                <h3>Scale-up links (UALink over Ethernet)</h3>
+                <div class="count">36 links × 400 Gb/s</div>
+                <p class="why"><strong>Why it's special:</strong> MI455X matches Rubin's 3.6 TB/s per GPU using open standards: the UALink protocol carried over Ethernet physical links. The links spread over 12 switch planes, so one failed switch costs only a twelfth of the bandwidth.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">3.6 TB/s</span><span class="l">per GPU, bidirectional</span></div>
+                  <div class="stat"><span class="v">36</span><span class="l">links at 400 Gb/s</span></div>
+                  <div class="stat"><span class="v">12</span><span class="l">switch planes</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does</h4>
+                    <ul>
+                      <li>Connects to the six switch trays in the "Inside the rack" tab.</li>
+                      <li>Analysts expect native UALink switches (without Ethernet) around 2027 <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="iod">I/O dies</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="host" data-role="io" hidden>
+                <span class="role">CPU link <button class="info-btn inline" popovertarget="amd-concept-host" aria-label="What is the CPU host link?">i</button></span>
+                <h3>Host link (Infinity Fabric)</h3>
+                <div class="count">To the EPYC Venice CPU</div>
+                <p class="why"><strong>An honest trade-off:</strong> MI455X talks to its CPU at a reported 256 GB/s. Nvidia's NVLink-C2C gives each Rubin 1.8 TB/s to Vera. AMD leans on each GPU's large HBM rather than on CPU memory, and pairs four GPUs with one CPU.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">256 GB/s</span><span class="l">GPU ↔ CPU</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">4 : 1</span><span class="l">GPUs per CPU</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="dh">What it does</h4>
+                    <ul>
+                      <li>Carries commands, input data and results between the CPU and GPU.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="dh">Connects to</h4>
+                    <div class="links-to"><button data-goto="iod">I/O dies</button><button data-goto="hbm">HBM4</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards for the chip (ⓘ) ===================== -->
+          <div class="concept" id="amd-concept-xcd" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is an XCD (and a chiplet)?</h4></div>
+            <button class="close" popovertarget="amd-concept-xcd" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A <b>chiplet</b> is a small die that is combined with others in one package to make a bigger chip. An <b>XCD</b> (accelerator complex die) is AMD's compute chiplet, full of <b>compute units</b>: AMD's equivalent of Nvidia's SMs.</p>
+              <p>Small dies are cheaper because one defect ruins less silicon.</p>
+              <div class="analogy"><b>Analogy:</b> building a house from prefabricated rooms instead of carving it from one giant block.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-cache" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a fabric &amp; cache die?</h4></div>
+            <button class="close" popovertarget="amd-concept-cache" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>When a GPU is made of chiplets, something has to connect them. A <b>fabric</b> die is the wiring that lets every compute chiplet reach every memory stack.</p>
+              <p>AMD also puts the <b>L2 cache</b> there: fast on-chip memory that keeps recently used data close to the compute units.</p>
+              <div class="analogy"><b>Analogy:</b> a central station with a big waiting hall. Every line passes through it, and travellers wait close to their platforms.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-hbm" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is HBM?</h4></div>
+            <button class="close" popovertarget="amd-concept-hbm" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>High-bandwidth memory</b> stacks DRAM chips on top of each other and places them right beside the processor, connected by thousands of tiny wires.</p>
+              <p>It is much faster than normal memory, but expensive and limited in size, so it is often the real bottleneck for AI.</p>
+              <div class="analogy"><b>Analogy:</b> a multi-storey car park next to the stadium, with a hundred exits instead of one.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-iod" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is an I/O die?</h4></div>
+            <button class="close" popovertarget="amd-concept-iod" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>An <b>I/O die</b> holds the circuits that send signals off the chip: to other GPUs, the CPU and the network. These analog circuits barely benefit from newer, costlier manufacturing processes, so they go on a separate chiplet.</p>
+              <div class="analogy"><b>Analogy:</b> a factory's loading bay. It doesn't need the fanciest machinery, just lots of doors.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="amd-concept-host" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a CPU host link?</h4></div>
+            <button class="close" popovertarget="amd-concept-host" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>The <b>host link</b> connects the GPU to the CPU that controls it. <b>Infinity Fabric</b> is AMD's family of links between its own chips.</p>
+              <p>A faster link lets the GPU use the CPU's memory as overflow; a slower one means the GPU leans on its own HBM.</p>
+              <div class="analogy"><b>Analogy:</b> the corridor between the head chef's office and the kitchen.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 5: Software ecosystem ===================== -->
+      <div class="tab-panel" id="tab-sw" role="tabpanel" aria-labelledby="tabbtn-sw" hidden>
+        <h2>AMD's software stack</h2>
+        <div class="stack">
+          <div class="layer"><span class="name">Agents</span><span><b>ROCm.AI</b>: ROCm CLI, AMD Skills for coding agents, and <b>Hyperloom</b>, an agentic optimiser that tunes vLLM/SGLang serving and rewrites kernels</span></div>
+          <div class="layer"><span class="name">Serving</span><span>vLLM and SGLang · <b>MIGraphX</b> graph optimiser</span></div>
+          <div class="layer"><span class="name">Frameworks</span><span>Native PyTorch, JAX and Triton support</span></div>
+          <div class="layer"><span class="name">Libraries</span><span><b>RCCL</b> collectives (symmetric memory, GPU-initiated networking) · Composable Kernel · FlyDSL</span></div>
+          <div class="layer"><span class="name">Kernel</span><span><b>HIP</b>, a CUDA-like language; <b>HIPIFY</b> ports CUDA code</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="v">ROCm 10</span><span class="l">released 27 Aug 2026, built on TheRock</span></div>
+          <div class="stat"><span class="v">~6 weeks</span><span class="l">new release cadence</span></div>
+          <div class="stat"><span class="v">3.3×</span><span class="l">inference vs ROCm 7 (AMD claim)</span><span class="tag tag-verify">PRESS</span></div>
+          <div class="stat"><span class="v">Open</span><span class="l">source, unlike CUDA</span></div>
+        </div>
+        <p class="note">AMD's ROCm blog lists Hyperloom support for MI300X, MI325X and MI355X; MI455X support isn't listed yet.</p>
+        <p><a href="../software.html">Compare with other vendors <span aria-hidden="true">→</span></a></p>
+      </div>
+
+      <!-- ===================== Block 6: Claims ===================== -->
+      <div class="tab-panel" id="tab-claims" role="tabpanel" aria-labelledby="tabbtn-claims" hidden>
+        <h2>Headline claims vs Nvidia Vera Rubin NVL72</h2>
+        <p class="legend">AMD's footnoted comparisons. AMD's "+15% FP4" depends on which Nvidia figure it is compared against: Nvidia quotes 3,600 PF for NVFP4 inference.</p>
+        <div class="claims">
+          <div class="claim card"><span class="value">+50%</span><span>HBM capacity</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">+50%</span><span>scale-out bandwidth</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">+15%</span><span>FP4 compute</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">+6%</span><span>HBM bandwidth</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">Up to 30%</span><span>more tokens per dollar (Kimi K2 Thinking)</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">1.7 PB/s</span><span>rack memory bandwidth</span><span class="tag tag-vendor">VENDOR</span></div>
+        </div>
+        <h3>What's next</h3>
+        <p>MI500 on CDNA 6 with HBM4E is planned for 2027, followed by MI600 in 2028 <span class="tag tag-verify">PRESS</span>.</p>
+      </div>
+    </section>
+
+    <nav class="pager">
+      <a href="nvidia.html"><span aria-hidden="true">←</span> Nvidia</a>
+      <a href="google-tpu.html">Google TPU <span aria-hidden="true">→</span></a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">Sources:
+      <a href="https://newsroom.amd.com/news/aai-2026-helios-update/">AMD: Helios update</a> ·
+      <a href="https://amd.com/en/blogs/2025/amd-helios-ai-rack-built-on-metas-2025-ocp-design.html">AMD: Helios on Meta's OCP design</a> ·
+      <a href="https://www.storagereview.com/news/amd-mi455x-and-helios-432gb-hbm4-72-gpu-racks-and-a-real-answer-to-vera-rubin">StorageReview: MI455X</a> ·
+      <a href="https://www.servethehome.com/amd-helios-architecture-deep-dive-amd-broadcom-hardware-combined/">ServeTheHome: Helios deep dive</a> ·
+      <a href="https://www.storagereview.com/news/amd-6th-gen-epyc-venice-256-cores-1-6tb-s-and-the-first-pcie-gen-6-server-cpu">StorageReview: Venice</a> ·
+      <a href="https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html">ROCm 10</a>
+      <p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/rack-explorer.js"></script>
+<script src="../assets/js/glossary.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+/* The provider bar, shared by every page of the guide: the eight racks in their three camps, nothing else.
+   The guide's own pages (Home, Primer, Compare, Software) live in the header, so the bar never repeats them.
+   1024px and up: a column fixed at the left under the header, every rack in view without scrolling down to a
+   ~600px-tall window (shorter windows drop the chip line and keep the names). The page shifts right by --side-w.
+   Below 1024px: one row of eight logo tiles pinned under the header, all in view at every width down to 320px. */
+:root {
+  --side-w: 264px; --top-h: 72px;
+  --camp-gpu: #3fae6a; --camp-asic: #4d8fe6; --camp-spec: #e8803a;
+  --side-bg: #151515; --side-line: rgb(255 255 255 / .09); --side-hover: rgb(255 255 255 / .06); --side-on: rgb(255 255 255 / .09);
+  --side-ink: #ededed; --side-muted: #8f8f8f; --side-faint: #6b6b6b; --side-focus: #c9ad98;
+  --side-ease: cubic-bezier(.2, .7, .2, 1);
+}
+@media (max-width: 639px) { :root { --top-h: 56px; } }
+
+.side {
+  position: fixed; z-index: 9; left: 0; top: var(--top-h); bottom: 0; width: var(--side-w);
+  display: flex; flex-direction: column; gap: 18px;
+  margin: 0; padding: 18px 12px 24px;
+  overflow-y: auto; overscroll-behavior: contain;
+  background: var(--side-bg); border-right: 1px solid var(--side-line);
+  font: 400 14px/1.35 "Reddit Sans", system-ui, sans-serif; color: var(--side-ink);
+  scrollbar-width: thin; scrollbar-color: #3a3a3a transparent;
+}
+.side a { color: inherit; text-decoration: none; }
+.side__group { display: grid; gap: 2px; }
+.side__group[data-camp="gpu"] { --c: var(--camp-gpu); }
+.side__group[data-camp="asic"] { --c: var(--camp-asic); }
+.side__group[data-camp="spec"] { --c: var(--camp-spec); }
+
+/* the camp's name: a quiet label, its colour on the dot, the count of racks at the right */
+.side__h {
+  display: flex; align-items: center; gap: 8px; height: 24px; margin: 0 0 4px; padding: 0 10px;
+  font: 500 12px/1 "Reddit Sans", system-ui, sans-serif; letter-spacing: .01em; color: #a3a3a3;
+}
+.side__h small { margin-left: auto; font: 400 11px/1 "JetBrains Mono", ui-monospace, monospace; color: var(--side-faint); }
+.side__dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--side-muted)); }
+
+/* one rack: the maker's real logo on a white plate, its name, its flagship */
+.side__p {
+  position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr); grid-template-rows: auto auto;
+  align-content: center; align-items: center; column-gap: 12px;
+  min-height: 44px; padding: 4px 10px; border-radius: 10px;
+  transition: background-color .16s var(--side-ease), transform .12s var(--side-ease);
+}
+.side__p b { grid-column: 2; font-size: 14px; font-weight: 500; line-height: 18px; color: var(--side-ink); }
+.side__p > span:last-child {
+  grid-column: 2; font-size: 12px; line-height: 16px; color: var(--side-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.side__logo {
+  grid-row: 1 / span 2; display: grid; place-items: center; width: 36px; height: 26px; border-radius: 6px; background: #ffffff;
+  transition: transform .2s var(--side-ease);
+}
+.side__logo img { display: block; width: auto; height: auto; max-width: 78%; max-height: 64%; filter: none; }
+
+.side__p:hover { background: var(--side-hover); }
+.side__p:hover .side__logo { transform: scale(1.06); }
+.side__p:active { transform: scale(.985); }
+.side__p:focus-visible { outline: 2px solid var(--side-focus); outline-offset: -2px; }
+.side__p[aria-current="page"] { background: var(--side-on); }
+.side__p[aria-current="page"]::before {
+  content: ""; position: absolute; left: 0; top: 11px; bottom: 11px; width: 3px; border-radius: 3px; background: var(--c, #a08672);
+}
+
+/* content beside the bar */
+@media (min-width: 1024px) {
+  body.has-side { padding-left: var(--side-w); }
+}
+
+/* a short window (a laptop with its toolbars, a zoomed page): names only, so all eight still show at once */
+@media (min-width: 1024px) and (max-height: 640px) {
+  .side { gap: 12px; padding-top: 12px; padding-bottom: 12px; }
+  .side__h { height: 22px; margin-bottom: 2px; }
+  .side__p { min-height: 36px; padding-block: 2px; }
+  .side__p > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .side__logo { grid-row: 1; height: 24px; }
+  .side__p[aria-current="page"]::before { top: 8px; bottom: 8px; }
+}
+
+/* below 1024px: one row of eight logo tiles, equal widths, nothing to scroll; the camp shows as the tile's base line */
+@media (max-width: 1023px) {
+  body.has-side { --side-row: 58px; }
+  .side {
+    right: 0; bottom: auto; width: auto; height: var(--side-row);
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: center; gap: 6px;
+    padding: 7px 12px; overflow: hidden;
+    border-right: 0; border-bottom: 1px solid var(--side-line);
+  }
+  .side__group { display: contents; }
+  .side__h { display: none; }
+  .side__p {
+    display: flex; align-items: center; justify-content: center; height: 44px; min-height: 0; padding: 0;
+    border-radius: 10px; background: #ffffff; box-shadow: inset 0 -3px 0 var(--c);
+    transition: transform .16s var(--side-ease);
+  }
+  .side__p:hover { background: #ffffff; transform: translateY(-1px); }
+  .side__p:active { transform: translateY(0) scale(.97); }
+  .side__p:hover .side__logo { transform: none; }
+  .side__logo { width: 100%; height: 100%; border-radius: 0; background: transparent; }
+  .side__logo img { max-width: min(70%, 64px); max-height: 20px; }
+  /* the name and the chip stay for screen readers and as the link's name */
+  .side__p b, .side__p > span:last-child {
+    position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .side__p:focus-visible { outline: 2px solid var(--side-focus); outline-offset: 2px; }
+  .side__p[aria-current="page"] { background: #ffffff; outline: 2px solid var(--c); outline-offset: 2px; }
+  .side__p[aria-current="page"]::before { display: none; }
+}
+@media (max-width: 479px) {
+  .side { gap: 4px; padding-inline: 8px; }
+  .side__logo img { max-width: 78%; max-height: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side__p, .side__logo { transition: none; }
+  .side__p:hover, .side__p:active, .side__p:hover .side__logo { transform: none; }
+}

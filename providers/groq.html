@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Groq LPU and Nvidia's Groq 3 LPX: an SRAM-only inference chip | AI Accelerators 101</title>
+  <meta name="description" content="How Groq's LPU keeps a model in on-chip SRAM instead of HBM, with a compiler that plans every step in advance, and how the Groq 3 LPU now ships in Nvidia's 256-chip LPX rack.">
+  <meta property="og:title" content="Groq LPU and Nvidia's Groq 3 LPX: an SRAM-only inference chip">
+  <meta property="og:description" content="How Groq's LPU keeps a model in on-chip SRAM instead of HBM, with a compiler that plans every step in advance, and how the Groq 3 LPU now ships in Nvidia's 256-chip LPX rack.">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="../assets/inner.css">
+  <link rel="stylesheet" href="../assets/side.css">
+  <style>
+    /* groq.html only */
+    /* Headings re-levelled for a clean outline (rack column h4 -> h3, detail h5 -> h4); same look as before. */
+    .rack-col h3 { margin: 12px 0 6px; font: 500 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .rack-col h3:first-child { margin-top: 0; }
+    .part-detail h4 { font: 600 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 8px; }
+    .part-detail .why + h4, .part-detail .stats + .detail-split h4 { margin-top: 12px; }
+    /* No violet: compute blocks use the accelerator green. */
+    .package .part, .package .part[data-role="compute"], .part-detail[data-role="compute"] { --part-color: var(--r-gpu); }
+    /* Tabs stick below the fixed header (and the provider row under 1024px). */
+    .tabs { top: calc(var(--top-h) + var(--side-row, 0px) + 8px); }
+    /* Detail stats wrap to the column width instead of a fixed four. */
+    .part-detail .stats { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+    .explorer > * { min-width: 0; }
+    #tab-sw .stats { margin-top: 20px; }
+    #tab-sw .note { margin-top: 16px; }
+    #tab-sw .legend { margin-top: 12px; }
+    /* Chip diagram over its details until the column is wide enough for both. */
+    @media (max-width: 1279px) {
+      .explorer.die-layout { grid-template-columns: minmax(0, 1fr); }
+      .die-layout .detail-col { position: static; max-height: none; overflow: visible; min-height: 0; }
+    }
+    @media (max-width: 860px) { .explorer { grid-template-columns: minmax(0, 1fr); } }
+    /* First-generation LPU (TSP) floorplan */
+    .package.gq-pkg { min-width: 0; grid-template-columns: 54px minmax(0, 1fr) 54px; border-color: #f55036; }
+    .gq-nohbm { display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; border: 1px dashed #5a3a30; border-radius: 6px; font: 600 .62rem/1.3 var(--mono); color: var(--muted); }
+    .gq-pkg .a-iodT { grid-template-columns: minmax(0, 1fr); }
+    .gq-pkg .a-core { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+    .gq-pkg .a-core .part:first-child { min-height: 240px; }
+    .gq-pkg .a-core .part-btn { padding: 6px 2px; }
+    @media (max-width: 640px) {
+      .package.gq-pkg { grid-template-columns: 30px minmax(0, 1fr) 30px; padding: 6px; gap: 4px; }
+      .gq-nohbm { padding: 2px; font-size: .56rem; }
+      .gq-pkg .a-core { gap: 2px; }
+      .gq-pkg .a-core .part-btn .s { writing-mode: vertical-rl; font-size: .6rem; }
+    }
+  </style>
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="../index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="../index.html">Home</a><a href="../primer.html">Primer</a><a href="../compare.html">Compare</a><a href="../software.html">Software</a></nav>
+      <a class="btn top__cta" href="../index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="../providers/nvidia.html"><span class="side__logo"><img src="../assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="../providers/amd.html"><span class="side__logo"><img src="../assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="../providers/google-tpu.html"><span class="side__logo"><img src="../assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="../providers/aws.html"><span class="side__logo"><img src="../assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="../providers/microsoft-maia.html"><span class="side__logo"><img src="../assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="../providers/qualcomm.html"><span class="side__logo"><img src="../assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="../providers/cerebras.html"><span class="side__logo"><img src="../assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="../providers/groq.html" aria-current="page"><span class="side__logo"><img src="../assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <!-- Block 1: Available series -->
+    <section class="provider-hero">
+      <span class="camp camp-spec">Specialist</span>
+      <h1>Groq: <span class="grad-text">the LPU, now Nvidia's Groq 3 LPX</span></h1>
+      <p class="lede">A chip built around on-chip SRAM instead of HBM, and a compiler that plans every step in advance. Groq's own racks have served GroqCloud since the first LPU. Its newest silicon, the Groq 3 LPU, now ships as a rack from Nvidia.</p>
+      <div class="timeline" role="group" aria-label="Available series">
+        <span class="gen">LPU v1 / GroqRack</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen latest">Groq 3 LPU (Nvidia LPX)</span>
+      </div>
+    </section>
+
+    <!-- Nvidia and Groq note -->
+    <section>
+      <div class="note">
+        <p><strong>Is Groq "acquired by Nvidia"? Widely described that way, but not legally.</strong> On 24 December 2025 Nvidia signed a <b>non-exclusive licence</b> to Groq's inference technology. Founder Jonathan Ross, president Sunny Madra and other staff joined Nvidia. Nvidia's annual report says no customer contracts, existing products or equity were bought, and total consideration is $13.0B paid at closing plus $4B due within a year (about $17B; press reports say about $20B <span class="tag tag-verify">PRESS</span>).</p>
+        <p>Groq stays independent under CEO Simon Edwards and still runs GroqCloud. The newest LPU silicon, the Groq 3 LPU, now ships under Nvidia's name (LP30, in the Groq 3 LPX rack). Bloomberg reported in September 2026 that the US Justice Department is examining whether the structure avoided merger review <span class="tag tag-verify">PRESS</span>; no findings have been reported.</p>
+      </div>
+    </section>
+
+    <!-- Block 2: Latest flagship at a glance -->
+    <section>
+      <div class="stats">
+        <div class="stat"><span class="v">256</span><span class="l">Groq 3 LPUs in one LPX rack</span></div>
+        <div class="stat"><span class="v">128 GB</span><span class="l">SRAM in the whole rack (one Rubin GPU: 288 GB HBM4)</span></div>
+        <div class="stat"><span class="v">150 TB/s</span><span class="l">SRAM bandwidth per LPU (Rubin GPU: ~22 TB/s)</span></div>
+        <div class="stat"><span class="v">~$17B</span><span class="l">Nvidia's disclosed licence payments</span></div>
+      </div>
+    </section>
+
+    <!-- Blocks 3–6 as tabs -->
+    <section>
+      <div class="tabs" role="tablist" aria-label="LPU sections">
+        <button role="tab" aria-selected="true"  aria-controls="tab-hw" id="tab-hw-btn">Inside the rack</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-chip" id="tab-chip-btn">The LPU</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-sw" id="tab-sw-btn">Software</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-claims" id="tab-claims-btn">Claims</button>
+      </div>
+
+      <!-- ===================== Block 4: Hardware ecosystem ===================== -->
+      <div class="tab-panel" id="tab-hw" role="tabpanel" aria-labelledby="tab-hw-btn">
+        <div class="section-head">
+          <h2>Take the rack apart</h2>
+          <p>Click a component to learn why it's special. Tap <b role="img" aria-label="the i button">ⓘ</b> to learn what that kind of part is.</p>
+        </div>
+        <p class="legend">Figures are Nvidia's or Groq's own unless tagged <span class="tag tag-verify">PRESS</span> (reported by trade press, not confirmed by the vendor). The newest rack is Nvidia's Groq 3 LPX.</p>
+
+        <div data-explorer data-noun="components of the rack">
+          <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer">
+            <!-- ---------- Left: the rack ---------- -->
+            <div class="rack-col">
+              <h3>The rack · Nvidia Groq 3 LPX (MGX ETL rack)</h3>
+              <div class="rack-frame">
+                <div class="part" data-part="power" data-role="power">
+                  <button class="part-btn"><span class="n">Power &amp; liquid cooling</span><span class="s">Fully liquid-cooled trays</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="gq-concept-cooling" aria-label="What is liquid cooling and an MGX rack?">i</button>
+                </div>
+                <div class="part" data-part="tray" data-role="tray">
+                  <button class="part-btn"><span class="n">LPU compute trays</span><span class="s">256 LPUs in total</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="gq-concept-tray" aria-label="What is a compute tray?">i</button>
+                </div>
+                <div class="part" data-part="spine" data-role="net">
+                  <button class="part-btn"><span class="n">Chip-to-chip backplane</span><span class="s">640 TB/s scale-up</span><span class="leds"><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="gq-concept-c2c" aria-label="What is a chip-to-chip network?">i</button>
+                </div>
+              </div>
+
+              <h3>Inside one compute tray</h3>
+              <div class="tray-zoom">
+                <div class="part" data-part="lpu" data-role="gpu">
+                  <button class="part-btn"><span class="n">Groq 3 LPU (LP30)</span><span class="s">8 or 16 per tray</span></button>
+                  <button class="info-btn" popovertarget="gq-concept-lpu" aria-label="What is an LPU?">i</button>
+                </div>
+                <div class="part" data-part="host" data-role="cpu">
+                  <button class="part-btn"><span class="n">Host CPU + DRAM</span><span class="s">Fabric expansion logic</span></button>
+                  <button class="info-btn" popovertarget="gq-concept-host" aria-label="What is a host CPU?">i</button>
+                </div>
+                <div class="part" data-part="dpu" data-role="dpu">
+                  <button class="part-btn"><span class="n">BlueField-4 / ConnectX-9</span><span class="s">Front-end network</span></button>
+                  <button class="info-btn" popovertarget="gq-concept-dpu" aria-label="What is a DPU?">i</button>
+                </div>
+              </div>
+
+              <h3>Beyond the rack</h3>
+              <div class="beyond">
+                <div class="part" data-part="nvl72" data-role="gpu">
+                  <button class="part-btn"><span class="n">Vera Rubin NVL72 next door</span><span class="s">GPUs do prefill and attention</span></button>
+                  <button class="info-btn" popovertarget="gq-concept-prefill" aria-label="What are prefill and decode?">i</button>
+                </div>
+                <div class="part" data-part="cloud" data-role="tray">
+                  <button class="part-btn"><span class="n">GroqCloud &amp; GroqRack v1</span><span class="s">Groq's own deployments</span></button>
+                  <button class="info-btn" popovertarget="gq-concept-cloud" aria-label="What is GroqCloud?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ---------- Right: detail panels ---------- -->
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">👈</div>
+                <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="power" data-role="power" hidden>
+                <span class="role">Rack infrastructure <button class="info-btn inline" popovertarget="gq-concept-cooling" aria-label="What is liquid cooling and an MGX rack?">i</button></span>
+                <h3>Power &amp; liquid cooling</h3>
+                <div class="count">Nvidia's MGX ETL rack, fully liquid-cooled</div>
+                <p class="why"><strong>Why it's special:</strong> Groq's own racks were air-cooled. The LPX moves to Nvidia's standard rack, so it can sit beside a Vera Rubin rack and share the same cooling and power plant. Nvidia's technical blog calls the trays "cableless".</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Not published</span><span class="l">rack power</span></div>
+                  <div class="stat"><span class="v">12 TB</span><span class="l">DDR5 per rack (Nvidia's LPX page)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Keeps 256 LPUs cool without fans in the trays.</li>
+                      <li>Nvidia says the compiler's cycle-by-cycle schedule lets it predict current draw and cut power; it reports a low-double-digit percent saving against a similar non-deterministic system (Nvidia claim).</li>
+                      <li>Power per rack: Nvidia hasn't stated it. Independent checks of its efficiency claims are still needed.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="tray">Compute trays</button><button data-goto="spine">Backplane</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="tray" data-role="tray" hidden>
+                <span class="role">Building block <button class="info-btn inline" popovertarget="gq-concept-tray" aria-label="What is a compute tray?">i</button></span>
+                <h3>LPU compute tray</h3>
+                <div class="count">256 LPUs per rack · tray layout reported two ways</div>
+                <p class="why"><strong>Why it's special:</strong> the sources disagree on how the 256 LPUs are split. Nvidia's technical blog describes 16 trays of 16 LPUs (2U each), but one of its own captions shows a 1U tray with 8. Trade press from GTC reported 32 trays of 8 <span class="tag tag-verify">PRESS</span>. Both multiply to 256. We don't know which is final.</p>
+                <h4>Key numbers (rack)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">256</span><span class="l">LPUs</span></div>
+                  <div class="stat"><span class="v">128 GB</span><span class="l">SRAM (derived: 256 × 500 MB)</span></div>
+                  <div class="stat"><span class="v">40 PB/s</span><span class="l">SRAM bandwidth</span></div>
+                  <div class="stat"><span class="v">315 PF</span><span class="l">FP8 compute (Nvidia blog)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What else is inside</h4>
+                    <ul>
+                      <li>A host processor and fabric expansion logic with DRAM.</li>
+                      <li>A BlueField-4 DPU or a ConnectX-9 NIC <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>32 optical chip-to-chip links and 400 Gb/s Ethernet on the tray front <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Look inside</h4>
+                    <div class="links-to"><button data-goto="lpu">LPU</button><button data-goto="host">Host CPU</button><button data-goto="dpu">DPU / NIC</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="spine" data-role="net" hidden>
+                <span class="role">Scale-up network <button class="info-btn inline" popovertarget="gq-concept-c2c" aria-label="What is a chip-to-chip network?">i</button> <button class="concept-link" popovertarget="gq-concept-manychips">Why does one model need many chips?</button></span>
+                <h3>Chip-to-chip backplane</h3>
+                <div class="count">Direct LPU-to-LPU links · no switch chips in the path</div>
+                <p class="why"><strong>Why it's special:</strong> LPUs link straight to each other, and the compiler schedules every transfer to a specific clock cycle. Nvidia says the protocol keeps hundreds of LPUs aligned in time. The result is that data arrives when the compiler said it would, not "eventually".</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">640 TB/s</span><span class="l">scale-up bandwidth per rack</span></div>
+                  <div class="stat"><span class="v">2.5 TB/s</span><span class="l">per LPU, both directions</span></div>
+                  <div class="stat"><span class="v">96 × 112 Gb/s</span><span class="l">links per LPU</span></div>
+                  <div class="stat"><span class="v">4</span><span class="l">spines (copper backplane)</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Joins 256 LPUs so a model's layers can be spread over many chips.</li>
+                      <li>Further links run out of the tray front to neighbouring racks <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Trade press describes the rack link to Vera Rubin as Ethernet-based <span class="tag tag-verify">PRESS</span>. No NVLink at launch <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="lpu">Every LPU</button><button data-goto="tray">Compute trays</button><button data-goto="nvl72">Vera Rubin NVL72</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="lpu" data-role="gpu" hidden>
+                <span class="role">Accelerator <button class="info-btn inline" popovertarget="gq-concept-lpu" aria-label="What is an LPU?">i</button></span>
+                <h3>Groq 3 LPU (Nvidia "LP30")</h3>
+                <div class="count">×256 per rack · built from Groq's second-generation LPU technology</div>
+                <p class="why"><strong>Why it's special:</strong> no HBM at all. The model lives in about 500 MB of on-chip SRAM per chip, so each LPU reads memory roughly 7× faster than a Rubin GPU reads HBM4. The price is capacity: one rack holds 128 GB, against 288 GB on a single Rubin GPU. Open "The LPU" tab for the chip layout.</p>
+                <h4>Key numbers (per LPU)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">~500 MB</span><span class="l">SRAM (Cerebras WSE-3: 44 GB per wafer)</span></div>
+                  <div class="stat"><span class="v">150 TB/s</span><span class="l">SRAM bandwidth (Rubin: ~22 TB/s)</span></div>
+                  <div class="stat"><span class="v">1.2 PF</span><span class="l">FP8</span></div>
+                  <div class="stat"><span class="v">Samsung 4nm</span><span class="l">process, as reported</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Runs the feed-forward maths while generating each token.</li>
+                      <li>FP8 only at launch; 4-bit formats are expected with a later LP35 <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Not CUDA-compatible <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="spine">Chip-to-chip links</button><button data-goto="host">Host CPU</button><button data-goto="nvl72">Vera Rubin NVL72</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="host" data-role="cpu" hidden>
+                <span class="role">Host CPU <button class="info-btn inline" popovertarget="gq-concept-host" aria-label="What is a host CPU?">i</button></span>
+                <h3>Host CPU, fabric expansion &amp; DRAM</h3>
+                <div class="count">One host per tray · x86 reported <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> a chip with only 500 MB of memory still needs somewhere to park things that don't need speed. The tray carries DRAM behind "fabric expansion logic" for that. Nvidia doesn't name the host CPU model.</p>
+                <h4>Key numbers (per tray, Nvidia blog)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">≤ 512 GB</span><span class="l">DRAM via fabric expansion logic</span></div>
+                  <div class="stat"><span class="v">≤ 256 GB</span><span class="l">DRAM via the host CPU</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Boots the tray and talks to the rest of the data centre.</li>
+                      <li>Stores data that doesn't fit in SRAM. Its speed is not published.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="lpu">LPUs</button><button data-goto="dpu">DPU / NIC</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="dpu" data-role="dpu" hidden>
+                <span class="role">DPU / NIC <button class="info-btn inline" popovertarget="gq-concept-dpu" aria-label="What is a DPU?">i</button></span>
+                <h3>BlueField-4 DPU or ConnectX-9 NIC</h3>
+                <div class="count">One per tray <span class="tag tag-verify">PRESS</span> · 400 Gb/s Ethernet on the tray front <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> this is where Nvidia's ecosystem plugs in. The LPX uses Nvidia's own network chips for traffic to the rest of the data centre. Groq's older racks used 200 Gb/s InfiniBand to the top-of-rack switch.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">400 Gb/s</span><span class="l">Ethernet per tray</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">1</span><span class="l">per tray; BlueField-4 or ConnectX-9</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Carries requests in and results out.</li>
+                      <li>Links the LPX to the Vera Rubin rack beside it.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="host">Host CPU</button><button data-goto="nvl72">Vera Rubin NVL72</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="nvl72" data-role="gpu" hidden>
+                <span class="role">Partner rack <button class="info-btn inline" popovertarget="gq-concept-prefill" aria-label="What are prefill and decode?">i</button></span>
+                <h3>Vera Rubin NVL72 next door</h3>
+                <div class="count">One or more LPX racks pair with each NVL72 · <a href="nvidia.html">full page on Nvidia</a></div>
+                <p class="why"><strong>Why it's special:</strong> the LPX is not meant to run alone. GPUs read the prompt (prefill) and handle the attention step during decode; LPUs handle the feed-forward step. Nvidia's Dynamo software splits each token between the two racks. A Rubin GPU has 288 GB of HBM4 at about 22 TB/s, so it holds the long context while the LPUs supply the speed.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Up to 35×</span><span class="l">throughput per MW vs GB200 NVL72, for 2T+ parameter models (Nvidia)</span></div>
+                  <div class="stat"><span class="v">4–8 racks</span><span class="l">for a trillion-parameter model, by weight precision</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Replaced the planned Rubin CPX prefill chip, which appears to have been dropped <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Speculative decoding: LPUs draft tokens, GPUs check them.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="spine">LPX backplane</button><button data-goto="dpu">DPU / NIC</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="cloud" data-role="tray" hidden>
+                <span class="role">Groq's own deployments <button class="info-btn inline" popovertarget="gq-concept-cloud" aria-label="What is GroqCloud?">i</button></span>
+                <h3>GroqCloud &amp; GroqRack v1</h3>
+                <div class="count">LPU v1 racks · independent of Nvidia since the licence</div>
+                <p class="why"><strong>Why it's special:</strong> this is the product Groq actually sold. A GroqNode is 8 GroqCards in a 4U box, and a GroqRack is 8 nodes, or 64 chips. GroqCloud serves models through an OpenAI-compatible API. Groq hasn't said which chip generation GroqCloud runs on today.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">64</span><span class="l">LPUs per GroqRack</span></div>
+                  <div class="stat"><span class="v">48 POPS</span><span class="l">INT8 per rack (Groq, 2020)</span></div>
+                  <div class="stat"><span class="v">19,000</span><span class="l">LPUs initially in Dammam, Saudi Arabia</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">Helsinki</span><span class="l">European site with Equinix, July 2025</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Serves chat models, speech-to-text and more through GroqCloud.</li>
+                      <li>Groq's own racks link nodes with two 200 Gb/s InfiniBand HDR connections per rack (2020 design).</li>
+                      <li>Groq is expected to be among the earliest LPX adopters <span class="tag tag-verify">PRESS</span>. Nebius is the first named cloud partner <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="lpu">Groq 3 LPU</button><button data-goto="nvl72">Vera Rubin NVL72</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards (ⓘ) ===================== -->
+          <div class="concept" id="gq-concept-cooling" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Liquid cooling &amp; the MGX rack</h4></div>
+            <button class="close" popovertarget="gq-concept-cooling" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>MGX</b> is Nvidia's modular rack standard, so different compute and network trays fit the same frame. <b>Liquid cooling</b> pumps coolant through plates on each chip, because air can't remove this much heat from so many chips.</p>
+              <div class="analogy"><b>Analogy:</b> a standard shelving system. Any tray fits any slot, and the plumbing is already there.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-tray" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a compute tray?</h4></div>
+            <button class="close" popovertarget="gq-concept-tray" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A tray is a flat drawer that slides into the rack, holding several accelerators, a host CPU and network chips on one board.</p>
+              <div class="analogy"><b>Analogy:</b> books on a shelf. Pull one out without moving the rest.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-c2c" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a chip-to-chip network?</h4></div>
+            <button class="close" popovertarget="gq-concept-c2c" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Each LPU holds only a slice of the model, so chips must pass results to each other constantly. In a normal network, a packet can wait in a queue. On Groq's, the <b>compiler</b> decides which link carries what in which clock cycle, so no queue forms.</p>
+              <p>Groq's design is a "direct" network: chips connect to chips, with no central switch in between.</p>
+              <div class="analogy"><b>Analogy:</b> a train timetable where every train's slot is fixed in advance, versus a motorway where you hope for no jams.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-lpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is an LPU?</h4></div>
+            <button class="close" popovertarget="gq-concept-lpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>An <b>LPU</b> (language processing unit) is Groq's name for its chip, built for running language models, not training them. Groq's first chip was called a <b>TSP</b> (tensor streaming processor): data streams past fixed blocks of compute units, instead of waiting in caches.</p>
+              <p>It holds the whole model in on-chip <b>SRAM</b>, and many chips share a model (see "why many chips").</p>
+              <div class="analogy"><b>Analogy:</b> an assembly line, not a workshop. Parts move past stations that each do one job.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-sram" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>SRAM vs HBM</h4></div>
+            <button class="close" popovertarget="gq-concept-sram" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>SRAM</b> sits on the chip itself and is very fast, but each bit takes a lot of silicon, so there isn't much of it. <b>HBM</b> is stacked DRAM beside the chip: much bigger, but slower to reach.</p>
+              <p>GPUs use HBM (a Rubin GPU has 288 GB at ~22 TB/s). The LPU uses only SRAM: far faster, far smaller.</p>
+              <div class="analogy"><b>Analogy:</b> the papers on your desk versus the filing cabinet down the hall.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-prefill" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Prefill vs decode</h4></div>
+            <button class="close" popovertarget="gq-concept-prefill" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Prefill</b> reads your whole prompt at once: lots of maths, so GPUs are good at it. <b>Decode</b> writes the answer one token at a time, and each token must re-read the model's weights from memory. Decode is limited by memory speed, not maths.</p>
+              <p>That is the LPU's job: its fast SRAM speeds up decode.</p>
+              <div class="analogy"><b>Analogy:</b> reading a book fast (prefill) versus writing a reply by hand, one word at a time (decode).</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-host" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a host CPU?</h4></div>
+            <button class="close" popovertarget="gq-concept-host" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Accelerators can't run an operating system. A <b>host CPU</b> boots the machine, loads data and handles everything that isn't matrix maths.</p>
+              <div class="analogy"><b>Analogy:</b> the head chef who reads the orders and hands tasks to the line cooks.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-dpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a DPU?</h4></div>
+            <button class="close" popovertarget="gq-concept-dpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A <b>data processing unit</b> is a network card with its own CPU cores. It takes over networking, storage access and security so the main chips don't have to. A plain <b>NIC</b> (like ConnectX-9) just moves data fast.</p>
+              <div class="analogy"><b>Analogy:</b> a building's mailroom and security desk.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-cloud" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is GroqCloud?</h4></div>
+            <button class="close" popovertarget="gq-concept-cloud" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>GroqCloud</b> is Groq's rented inference service: you send text to an API, and models run on Groq's own LPU racks in its data centres. You never touch the hardware.</p>
+              <div class="analogy"><b>Analogy:</b> ordering from a restaurant instead of buying the kitchen.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 3: The accelerator chip ===================== -->
+      <div class="tab-panel" id="tab-chip" role="tabpanel" aria-labelledby="tab-chip-btn" hidden>
+        <div class="section-head">
+          <h2>Inside the LPU</h2>
+          <p>Click any block on the chip. Tap <b role="img" aria-label="the i button">ⓘ</b> to learn what that block is.</p>
+        </div>
+        <p class="legend">Schematic of the first-generation chip (the "TSP"), based on Groq's ISCA 2020 paper and Hot Chips slides. Not a die photo, not to scale. <b>The Groq 3 layout isn't public</b>; Nvidia says it keeps the same MXM, VXM and SXM modules.</p>
+
+        <div data-explorer data-noun="blocks on the chip">
+          <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer die-layout">
+            <div>
+              <div class="die-scroll">
+                <div class="package mi-pkg gq-pkg" role="group" aria-label="First-generation LPU (TSP) floorplan schematic">
+                  <!-- Empty sides: no HBM -->
+                  <div class="a-hbmL gq-nohbm">no<br>HBM</div>
+                  <div class="a-hbmR gq-nohbm">no<br>HBM</div>
+
+                  <!-- Top: instruction control -->
+                  <div class="io-row a-iodT">
+                    <div class="part" data-part="icu" data-role="sched">
+                      <button class="part-btn"><span class="n">ICU · 144 instruction queues</span><span class="s">sends instructions to every slice</span></button>
+                      <button class="info-btn" popovertarget="gq-concept-icu" aria-label="What is an instruction control unit?">i</button>
+                    </div>
+                  </div>
+
+                  <!-- Centre: slices, mirrored around the VXM -->
+                  <div class="core a-core">
+                    <div class="part" data-part="mxm" data-role="compute">
+                      <button class="part-btn"><span class="n">MXM</span><span class="s">matrix</span></button>
+                      <button class="info-btn" popovertarget="gq-concept-mxm" aria-label="What is the matrix unit?">i</button>
+                    </div>
+                    <div class="part" data-part="sxm" data-role="io">
+                      <button class="part-btn"><span class="n">SXM</span><span class="s">shuffle</span></button>
+                      <button class="info-btn" popovertarget="gq-concept-sxm" aria-label="What is the switch unit?">i</button>
+                    </div>
+                    <div class="part" data-part="mem" data-role="mem">
+                      <button class="part-btn"><span class="n">MEM</span><span class="s">SRAM</span></button>
+                      <button class="info-btn" popovertarget="gq-concept-sram" aria-label="What is on-chip SRAM?">i</button>
+                    </div>
+                    <div class="part" data-part="vxm" data-role="compute">
+                      <button class="part-btn"><span class="n">VXM</span><span class="s">vector</span></button>
+                      <button class="info-btn" popovertarget="gq-concept-vxm" aria-label="What is the vector unit?">i</button>
+                    </div>
+                    <div class="part" data-part="mem" data-role="mem"><button class="part-btn"><span class="n">MEM</span><span class="s">SRAM</span></button></div>
+                    <div class="part" data-part="sxm" data-role="io"><button class="part-btn"><span class="n">SXM</span><span class="s">shuffle</span></button></div>
+                    <div class="part" data-part="mxm" data-role="compute"><button class="part-btn"><span class="n">MXM</span><span class="s">matrix</span></button></div>
+                  </div>
+
+                  <!-- Bottom: spare superlane + chip-to-chip links -->
+                  <div class="io-row a-iodB">
+                    <div class="part" data-part="spare" data-role="sec">
+                      <button class="part-btn"><span class="n">Spare superlane</span><span class="s">21st of 21</span></button>
+                      <button class="info-btn" popovertarget="gq-concept-spare" aria-label="What is a spare superlane?">i</button>
+                    </div>
+                    <div class="part" data-part="c2c" data-role="io">
+                      <button class="part-btn"><span class="n">Chip-to-chip links</span><span class="s">16 · 480 GB/s</span></button>
+                      <button class="info-btn" popovertarget="gq-concept-c2c" aria-label="What is a chip-to-chip network?">i</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="die-caption">West half ← VXM centre → East half. Data streams east and west along 20 horizontal superlanes; instructions flow down the slices. 14nm, about 25 × 29 mm, 900 MHz.</p>
+            </div>
+
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">🔬</div>
+                <p><strong>Zoom into the silicon.</strong><br>Start with the green MXM slices, where the matrix maths happens.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="mxm" data-role="compute" hidden>
+                <span class="role">Compute <button class="info-btn inline" popovertarget="gq-concept-mxm" aria-label="What is the matrix unit?">i</button></span>
+                <h3>Matrix units (MXM)</h3>
+                <div class="count">One on each edge · 320 × 320 array · 4 planes in total</div>
+                <p class="why"><strong>Why it's special:</strong> the matrix units sit at the outer edges and multiply grids of numbers as streams of data flow through. Each plane stores 102,400 weights on-chip. Because the compiler knows exactly when each number will arrive, there is no cache or scheduler to wait on.</p>
+                <h4>Key numbers (whole chip)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">750 TOPS</span><span class="l">INT8 peak (900 MHz)</span></div>
+                  <div class="stat"><span class="v">188 TFLOPS</span><span class="l">FP16 peak</span></div>
+                  <div class="stat"><span class="v">409,600</span><span class="l">weights held across 4 planes (derived: 4 × 102,400)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Does the heavy matrix maths of each model layer.</li>
+                      <li>Groq 3: Nvidia quotes 1.2 PFLOPS FP8 per LPU. These are different chips and number formats, so they aren't directly comparable.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="sxm">SXM</button><button data-goto="mem">MEM</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="sxm" data-role="io" hidden>
+                <span class="role">Data movement <button class="info-btn inline" popovertarget="gq-concept-sxm" aria-label="What is the switch unit?">i</button></span>
+                <h3>Switch units (SXM)</h3>
+                <div class="count">One in each half · shift, permute, transpose</div>
+                <p class="why"><strong>Why it's special:</strong> maths often needs data rearranged first, for example flipping a grid on its side. The SXM does that reshuffling in the stream, so no extra trip through memory is needed.</p>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Shifts data up or down the lanes.</li>
+                      <li>Permutes and transposes tensors as they pass.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="mxm">MXM</button><button data-goto="mem">MEM</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="mem" data-role="mem" hidden>
+                <span class="role">Memory <button class="info-btn inline" popovertarget="gq-concept-sram" aria-label="What is on-chip SRAM?">i</button></span>
+                <h3>On-chip SRAM (MEM)</h3>
+                <div class="count">88 slices · 44 in each half · 20 tiles per slice</div>
+                <p class="why"><strong>Why it's special:</strong> this is the model's main storage, not a cache. The compiler places every tensor at a known address. There is no HBM on the chip, so the weights sit within a few millimetres of the maths.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">230 MB</span><span class="l">SRAM per chip (220 MiB in the paper)</span></div>
+                  <div class="stat"><span class="v">80 TB/s</span><span class="l">on-die bandwidth, up to</span></div>
+                  <div class="stat"><span class="v">0</span><span class="l">HBM stacks</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Holds weights and working data for the layers this chip owns.</li>
+                      <li>Capacity is the catch: a 70B-parameter model at 8-bit is about 70 GB, so it needs at least 300 chips (derived: 70 GB ÷ 230 MB).</li>
+                      <li>Groq 3 keeps the same idea at about 500 MB and 150 TB/s per chip.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="vxm">VXM</button><button data-goto="mxm">MXM</button><button data-goto="sxm">SXM</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="vxm" data-role="compute" hidden>
+                <span class="role">Compute <button class="info-btn inline" popovertarget="gq-concept-vxm" aria-label="What is the vector unit?">i</button></span>
+                <h3>Vector unit (VXM)</h3>
+                <div class="count">Centre of the chip · 16 processing elements per lane</div>
+                <p class="why"><strong>Why it's special:</strong> everything in a model that isn't a big matrix multiply (adding, activation functions, scaling) happens here. It sits in the middle so data from either half reaches it quickly.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">5,120</span><span class="l">32-bit operations per cycle</span></div>
+                  <div class="stat"><span class="v">320</span><span class="l">lanes (20 superlanes × 16)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Applies activation functions and element-wise maths.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="mem">MEM</button><button data-goto="icu">ICU</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="icu" data-role="sched" hidden>
+                <span class="role">Control <button class="info-btn inline" popovertarget="gq-concept-icu" aria-label="What is an instruction control unit?">i</button> <button class="concept-link" popovertarget="gq-concept-determinism">What is deterministic execution?</button> <button class="concept-link" popovertarget="gq-concept-compiler">What is compiler scheduling?</button></span>
+                <h3>Instruction control units (ICU)</h3>
+                <div class="count">144 instruction queues on the chip</div>
+                <p class="why"><strong>Why it matters:</strong> a GPU decides at run time what to do next. The LPU can't: its instructions were fixed by the compiler. The ICU just plays them back at the exact cycle, and there are no branch predictors, caches or dynamic schedulers to add surprises.</p>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Fetches and sends instructions to the slices, which then act on data as it streams past.</li>
+                      <li>Unlike the slices, the ICU is drawn laid out sideways.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="vxm">VXM</button><button data-goto="mxm">MXM</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="spare" data-role="sec" hidden>
+                <span class="role">Redundancy <button class="info-btn inline" popovertarget="gq-concept-spare" aria-label="What is a spare superlane?">i</button></span>
+                <h3>Spare superlane</h3>
+                <div class="count">21 superlanes built, 20 used</div>
+                <p class="why"><strong>Why it's special:</strong> a chip this regular can hide one spare row. If manufacturing leaves one superlane faulty, the chip is still usable, which improves yield. The compiler never sees the spare.</p>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Lets a die with a single superlane fault count as "all good".</li>
+                      <li>Each superlane is 16 lanes wide; 20 give the chip's 320-element vector.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="vxm">VXM</button><button data-goto="c2c">Chip-to-chip links</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="c2c" data-role="io" hidden>
+                <span class="role">Chip-to-chip I/O <button class="info-btn inline" popovertarget="gq-concept-c2c" aria-label="What is a chip-to-chip network?">i</button></span>
+                <h3>Chip-to-chip links</h3>
+                <div class="count">16 links per v1 chip · 96 per Groq 3 chip</div>
+                <p class="why"><strong>Why it's special:</strong> there is no HBM, so the chip's only way out is to its neighbours. Groq's compiler schedules traffic across these links just like on-chip data, so a 300-chip system behaves like one big deterministic machine.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">16 · 480 GB/s</span><span class="l">v1 chip: links · off-chip total</span></div>
+                  <div class="stat"><span class="v">96 × 112 Gb/s</span><span class="l">Groq 3: links per chip</span></div>
+                  <div class="stat"><span class="v">2.5 TB/s</span><span class="l">Groq 3 total, both directions</span></div>
+                  <div class="stat"><span class="v">2.5 µs</span><span class="l">worst-case latency, 320-chip v1 system (Groq, 2020)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Joins chips directly, in a "Dragonfly" layout at large scale (Hot Chips 2022).</li>
+                      <li>See the "Inside the rack" tab for the Groq 3 backplane.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="spare">Spare superlane</button><button data-goto="mem">MEM</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards for the chip (ⓘ) ===================== -->
+          <div class="concept" id="gq-concept-determinism" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Deterministic execution</h4></div>
+            <button class="close" popovertarget="gq-concept-determinism" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Deterministic</b> means the same input always takes exactly the same number of clock cycles. A GPU uses caches and run-time scheduling that make timing vary a little. The LPU has no caches, branch predictors or dynamic schedulers, so timing is known before the program starts.</p>
+              <p>That makes speed predictable, and lets the compiler plan data movement and even power.</p>
+              <div class="analogy"><b>Analogy:</b> a metro on a fixed timetable versus a taxi whose route depends on traffic.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-compiler" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Compiler scheduling</h4></div>
+            <button class="close" popovertarget="gq-concept-compiler" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A <b>compiler</b> turns a model into chip instructions. Usually the chip then adjusts on the fly. On the LPU the compiler decides everything in advance: which data sits where, which slice acts when, and which link sends what.</p>
+              <div class="analogy"><b>Analogy:</b> a choreographer who writes every dancer's position for every beat, so no one needs to improvise.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-manychips" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Why many chips for one model?</h4></div>
+            <button class="close" popovertarget="gq-concept-manychips" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>The model's weights must fit in on-chip SRAM, and each LPU holds only 230 MB (v1) or about 500 MB (Groq 3). A 70B-parameter model at 8-bit is about 70 GB, so it is split layer by layer across hundreds of chips (derived: at least ~300 v1 chips).</p>
+              <p>Nvidia says a trillion-parameter model needs 4 to 8 LPX racks <span class="tag tag-verify">PRESS</span>.</p>
+              <div class="analogy"><b>Analogy:</b> a library too big for one room, so each room holds a few shelves and a corridor joins them all.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-mxm" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a matrix unit?</h4></div>
+            <button class="close" popovertarget="gq-concept-mxm" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>AI models are mostly <b>matrix multiplications</b>: grids of weights times grids of inputs. A matrix unit is a block of hardware that does a whole grid at once. Groq's holds 320 × 320 weights.</p>
+              <div class="analogy"><b>Analogy:</b> a loom that weaves a whole row of thread at once instead of one thread at a time.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-sxm" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a switch / permute unit?</h4></div>
+            <button class="close" popovertarget="gq-concept-sxm" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Maths needs data in a particular order. The SXM <b>shifts</b>, <b>permutes</b> (reorders) and <b>transposes</b> (flips rows and columns) data as it passes by.</p>
+              <div class="analogy"><b>Analogy:</b> a card dealer reshuffling the deck between hands.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-vxm" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a vector unit?</h4></div>
+            <button class="close" popovertarget="gq-concept-vxm" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Between matrix multiplications, a model applies simpler steps to each number: adding, scaling, squashing values with an <b>activation function</b>. A vector unit does one such step on a whole row at once.</p>
+              <div class="analogy"><b>Analogy:</b> a rubber stamp the width of the page, stamping every item on the line together.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-icu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is an instruction control unit?</h4></div>
+            <button class="close" popovertarget="gq-concept-icu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A chip needs something to tell its blocks what to do and when. Most chips decide this as they go. The LPU's <b>ICUs</b> hold a script written by the compiler and read it out on the right cycle.</p>
+              <div class="analogy"><b>Analogy:</b> a stage manager calling cues from a script, not making them up.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="gq-concept-spare" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a spare row (yield redundancy)?</h4></div>
+            <button class="close" popovertarget="gq-concept-spare" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Chips are cut from silicon wafers, and tiny flaws ruin some. <b>Yield</b> is the share that works. Building one extra copy of a repeated unit lets a chip with a single flaw still pass.</p>
+              <div class="analogy"><b>Analogy:</b> a spare tyre. You only notice it when you need it.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 5: Software ecosystem ===================== -->
+      <div class="tab-panel" id="tab-sw" role="tabpanel" aria-labelledby="tab-sw-btn" hidden>
+        <h2>The software stack</h2>
+        <div class="stack">
+          <div class="layer"><span class="name">Serving (LPX)</span><span><b>Nvidia Dynamo</b> sends prefill to GPUs and runs the decode loop across GPUs and LPUs. No CUDA changes at launch <span class="tag tag-verify">PRESS</span></span></div>
+          <div class="layer"><span class="name">API (GroqCloud)</span><span>OpenAI-compatible API at <b>api.groq.com/openai/v1</b></span></div>
+          <div class="layer"><span class="name">Toolflow</span><span><b>GroqFlow</b> compiled PyTorch, ONNX and Keras models for Groq hardware. Its GitHub repo was archived on 31 Jul 2025</span></div>
+          <div class="layer"><span class="name">Compiler</span><span><b>Groq Compiler</b> schedules every operation and every transfer, cycle by cycle, across all chips</span></div>
+          <div class="layer"><span class="name">Legacy on-prem</span><span><b>GroqWare</b>: the suite of API, Runtime, DevTools and Compiler for GroqRack customers</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="v">OpenAI</span><span class="l">compatible API</span></div>
+          <div class="stat"><span class="v">560 tok/s</span><span class="l">Llama 3.1 8B, GroqCloud's listed speed</span></div>
+          <div class="stat"><span class="v">1,000 tok/s</span><span class="l">gpt-oss-20B, listed speed</span></div>
+          <div class="stat"><span class="v">131,072</span><span class="l">tokens of context on those models</span></div>
+        </div>
+        <p class="note"><b>Why the compiler is the product.</b> The LPU has no caches or run-time scheduler, so the chip alone can't run anything well: the compiler does the work a GPU's hardware does on the fly. It must place every tensor, time every instruction and plan every link transfer across hundreds of chips. That is what Nvidia licensed, and what makes timing predictable. The trade-off is that each new model must be compiled and tuned before it runs fast.</p>
+        <p class="legend">Speeds are the vendor's listed figures from GroqCloud's models page, not independent measurements. Which LPU generation serves them isn't stated.</p>
+        <p><a href="../software.html">Compare with other vendors <span aria-hidden="true">→</span></a></p>
+      </div>
+
+      <!-- ===================== Block 6: Claims ===================== -->
+      <div class="tab-panel" id="tab-claims" role="tabpanel" aria-labelledby="tab-claims-btn" hidden>
+        <h2>Headline claims</h2>
+        <p class="legend">Vendor figures are projections or company-run tests. Nvidia's footnotes say its LPX figures are "subject to change".</p>
+        <div class="claims">
+          <div class="claim card"><span class="value">Up to 35×</span><span>throughput per megawatt, LPX + Vera Rubin vs GB200 NVL72 (2T+ parameter models)</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">Up to 10×</span><span>revenue opportunity for trillion-parameter models vs GB200 NVL72</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">~7×</span><span>memory bandwidth of a Rubin GPU's HBM4 (150 vs ~22 TB/s)</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">3,400 tok/s</span><span>Gemma 4 31B at 100K context, measured by Artificial Analysis on a private pre-release endpoint</span><span class="tag tag-verify">PRESS</span></div>
+          <div class="claim card"><span class="value">750 TOPS</span><span>INT8 peak for the first-generation chip, at 900 MHz</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">Up to 10×</span><span>better energy efficiency than GPUs (Groq, 2024)</span><span class="tag tag-verify">PRESS</span></div>
+        </div>
+        <h3>What's next</h3>
+        <p>Nvidia announced the Groq 3 LPX as in full production in August 2026. Nebius is named as the first cloud to deploy it <span class="tag tag-verify">PRESS</span>. A follow-on LP35 with 4-bit formats is expected next year <span class="tag tag-verify">PRESS</span>. Open questions: how the DOJ probe ends, and whether GroqCloud moves to Groq 3 chips.</p>
+      </div>
+    </section>
+
+    <nav class="pager">
+      <a href="cerebras.html"><span aria-hidden="true">←</span> Cerebras</a>
+      <a href="../index.html">All providers <span aria-hidden="true">→</span></a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">Sources:
+      <a href="https://www.sec.gov/Archives/edgar/data/0001045810/000104581026000038/a2026-annualxreportxwebxfi.pdf">Nvidia annual report (Note 2: Groq)</a> ·
+      <a href="https://groq.com/newsroom/groq-and-nvidia-enter-non-exclusive-inference-technology-licensing-agreement-to-accelerate-ai-inference-at-global-scale">Groq: licensing announcement</a> ·
+      <a href="https://developer.nvidia.com/blog/inside-nvidia-groq-3-lpx-the-low-latency-inference-accelerator-for-the-nvidia-vera-rubin-platform/">Nvidia: inside Groq 3 LPX</a> ·
+      <a href="https://www.nvidia.com/en-us/data-center/lpx/">Nvidia: LPX page</a> ·
+      <a href="https://www.theregister.com/2026/03/19/nvidia_lpx_deep_dive/">The Register: LPX deep dive</a> ·
+      <a href="https://www.storagereview.com/news/nvidia-groq-3-lpx-everything-we-know">StorageReview: LPX</a> ·
+      <a href="https://groq.com/wp-content/uploads/2024/02/2020-Isca.pdf">Groq: ISCA 2020 TSP paper</a> ·
+      <a href="https://hc34.hotchips.org/assets/program/conference/day2/Machine%20Learning/HotChips34%20-%20Groq%20-%20Abts%20-%20final.pdf">Groq: Hot Chips 34</a> ·
+      <a href="https://mlhardware.github.io/2020/groq.pdf">Groq: ISC 2020 slides</a> ·
+      <a href="https://console.groq.com/docs/models">GroqCloud docs: models</a>
+      <p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/rack-explorer.js"></script>
+<script src="../assets/js/glossary.js" defer></script>
+</body>
+</html>

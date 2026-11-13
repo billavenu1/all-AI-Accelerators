@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Microsoft Maia 300: the rack taken apart | AI Accelerators 101</title>
+  <meta name="description" content="How Microsoft's Maia 300 is built: a 96-accelerator, 167 kW rack, a chiplet chip with 288 GB of HBM4, the Maia SDK, and Microsoft's claims versus Maia 200.">
+  <meta property="og:title" content="Microsoft Maia 300: the rack taken apart | AI Accelerators 101">
+  <meta property="og:description" content="How Microsoft's Maia 300 is built: a 96-accelerator, 167 kW rack, a chiplet chip with 288 GB of HBM4, the Maia SDK, and Microsoft's claims versus Maia 200.">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="../assets/inner.css">
+  <link rel="stylesheet" href="../assets/side.css">
+  <style>
+    /* Page-only adjustments for the v2 shell (this file only). */
+    /* sticky tab bar and detail column clear the fixed header and, below 1024px, the provider row */
+    .tabs { top: calc(var(--top-h) + var(--side-row, 0px) + 8px); }
+    .detail-col { top: calc(var(--top-h) + var(--side-row, 0px) + 68px); container-type: inline-size; }
+    /* heading levels step one at a time; these keep the old look */
+    .rack-col .rack-label { margin: 12px 0 6px; font: 500 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .rack-col .rack-label:first-child { margin-top: 0; }
+    .part-detail .sub { font: 600 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 8px; }
+    .part-detail .why + .sub, .part-detail .stats + .detail-split .sub { margin-top: 12px; }
+    .part.seen .part-btn .n::after { content: " \2713" / ""; }
+    /* readable instruction text */
+    .section-head p, .empty-detail { color: #c4c4c4; }
+    .info-btn:hover, .info-btn:focus-visible { color: #111111; }
+    /* rack drawing: graphite instead of the original navy */
+    .rack-frame { background: linear-gradient(180deg, #202020, #171717); border-color: var(--border); }
+    .rack-frame .part-btn { background: var(--surface-2); border-color: #383838; color: var(--text); }
+    .rack-frame .part-btn .s { color: #b3b3b3; }
+    .rack-frame .part.active .part-btn { background: color-mix(in srgb, var(--part-color) 22%, var(--surface-2)); }
+    /* chip schematic: graphite package, bronze outline, theme role colours (no violet) */
+    .package.mi-pkg { background: #151515; border-color: var(--accent-2); box-shadow: 0 0 0 1px #2a2a2a; }
+    .mi-pkg .fcd { background: #1a1a1a; border-color: #3a3a3a; }
+    .mi-pkg .die-label { color: var(--link); }
+    .package .part { --part-color: var(--r-tray); }
+    .package .part[data-role="compute"], .part-detail[data-role="compute"] { --part-color: var(--r-gpu); }
+    .package .part[data-role="cache"], .part-detail[data-role="cache"] { --part-color: var(--r-cpu); }
+    .package .part[data-role="mem"], .part-detail[data-role="mem"] { --part-color: var(--link); }
+    .package .part[data-role="io"], .part-detail[data-role="io"] { --part-color: var(--r-net); }
+    .package .part[data-role="sched"], .part-detail[data-role="sched"] { --part-color: var(--r-dpu); }
+    .package .part-btn { background: color-mix(in srgb, var(--part-color) 20%, #141414); color: var(--text); padding: 6px 7px; }
+    .package .part:has(.info-btn) .part-btn { padding-top: 22px; } /* text clears the corner ⓘ */
+    .package .part:hover .part-btn, .package .part.active .part-btn { background: color-mix(in srgb, var(--part-color) 40%, #141414); }
+    /* narrow columns: the schematic shrinks to fit, the detail panel re-flows */
+    .die-scroll { container-type: inline-size; }
+    @container (max-width: 520px) {
+      .package.mi-pkg { min-width: 0; grid-template-columns: 64px minmax(0, 1fr) 64px; padding: 8px; }
+      .mi-pkg .a-core { grid-template-columns: minmax(0, 1fr); }
+      .package .part-btn .n { font-size: .66rem; }
+      .package .part-btn .s { font-size: .6rem; }
+    }
+    @container (max-width: 540px) { .part-detail .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @container (max-width: 380px) { .detail-split { grid-template-columns: minmax(0, 1fr); } }
+    .part-detail .stat .v { overflow-wrap: anywhere; }
+    .detail-nav { flex-wrap: wrap; }
+    #tab-sw .stack + .stats { margin-top: 20px; }
+    .tab-panel .note { margin-top: 16px; }
+    .claim .value { margin-right: 60px; } /* keeps long values clear of the corner tag */
+    @media (max-width: 639px) { .tabs { gap: 2px; padding: 4px; } .tabs button { padding: 8px 11px; font-size: .86rem; } }
+    .beyond, .mi-pkg .io-row { grid-template-columns: minmax(0, 1fr); }
+  </style>
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="../index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="../index.html">Home</a><a href="../primer.html">Primer</a><a href="../compare.html">Compare</a><a href="../software.html">Software</a></nav>
+      <a class="btn top__cta" href="../index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="../providers/nvidia.html"><span class="side__logo"><img src="../assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="../providers/amd.html"><span class="side__logo"><img src="../assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="../providers/google-tpu.html"><span class="side__logo"><img src="../assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="../providers/aws.html"><span class="side__logo"><img src="../assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="../providers/microsoft-maia.html" aria-current="page"><span class="side__logo"><img src="../assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="../providers/qualcomm.html"><span class="side__logo"><img src="../assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="../providers/cerebras.html"><span class="side__logo"><img src="../assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="../providers/groq.html"><span class="side__logo"><img src="../assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <!-- Block 1: Available series -->
+    <section class="provider-hero">
+      <span class="camp camp-asic">Hyperscaler ASIC</span>
+      <h1>Microsoft: <span class="grad-text">Maia 300</span></h1>
+      <p class="lede">Microsoft's third-generation in-house AI chip, built mainly for inference. Announced 12 October 2026. It is not deployed yet: production deployments start in 2027. Maia 200, announced in January 2026, is the chip running in Azure today.</p>
+      <div class="timeline" role="group" aria-label="Available series">
+        <span class="gen">Maia 100</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">Maia 200</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen latest">Maia 300 (announced; deployment from 2027)</span>
+      </div>
+    </section>
+
+    <!-- Block 2: Latest flagship at a glance -->
+    <section>
+      <div class="stats">
+        <div class="stat"><span class="v">96</span><span class="l">accelerators in one 167 kW rack</span></div>
+        <div class="stat"><span class="v">288 GB</span><span class="l">HBM4 per chip, at 18 TB/s</span></div>
+        <div class="stat"><span class="v">12,288</span><span class="l">accelerators in one superpod</span></div>
+        <div class="stat"><span class="v">Up to 7×</span><span class="l">rack throughput vs Maia 200 (Microsoft claim)</span></div>
+      </div>
+    </section>
+
+    <!-- Blocks 3–6 as tabs -->
+    <section>
+      <div class="tabs" role="tablist" aria-label="Sections of this page">
+        <button role="tab" aria-selected="true"  id="tab-hw-btn" aria-controls="tab-hw">Inside the rack</button>
+        <button role="tab" aria-selected="false" id="tab-chip-btn" aria-controls="tab-chip">The chip</button>
+        <button role="tab" aria-selected="false" id="tab-sw-btn" aria-controls="tab-sw">Software</button>
+        <button role="tab" aria-selected="false" id="tab-claims-btn" aria-controls="tab-claims">Claims</button>
+      </div>
+
+      <!-- ===================== Block 4: Hardware ecosystem ===================== -->
+      <div class="tab-panel" id="tab-hw" role="tabpanel" aria-labelledby="tab-hw-btn">
+        <div class="section-head">
+          <h2>Take the rack apart</h2>
+          <p>Click a component to learn why it's special. Tap <b>ⓘ</b> to learn what that kind of part is.</p>
+        </div>
+        <p class="legend">Figures are Microsoft's own unless tagged <span class="tag tag-verify">PRESS</span> (reported by trade press, not confirmed by Microsoft). Microsoft has shown prototype racks only; nothing is shipping yet. "Derived" means our own arithmetic.</p>
+
+        <div data-explorer data-noun="components of the rack">
+          <div class="explorer-progress"><span class="count"></span><div class="bar" aria-hidden="true"><span></span></div></div>
+
+          <div class="explorer">
+            <!-- ---------- Left: the rack ---------- -->
+            <div class="rack-col">
+              <h3 class="rack-label">The rack · 96 accelerators</h3>
+              <div class="rack-frame">
+                <div class="part" data-part="power" data-role="power">
+                  <button class="part-btn"><span class="n">Power &amp; liquid cooling</span><span class="s">167 kW · 50 V busbar · liquid-cooled</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="ms-concept-cooling" aria-label="What is rack power and liquid cooling?">i</button>
+                </div>
+                <div class="part" data-part="tray" data-role="tray">
+                  <button class="part-btn"><span class="n">Compute trays ×24</span><span class="s">4 accelerators + host in each</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="ms-concept-tray" aria-label="What is a compute tray?">i</button>
+                </div>
+                <div class="part" data-part="switch" data-role="net">
+                  <button class="part-btn"><span class="n">Scale-up switch trays ×3</span><span class="s">Ethernet-based · 6 switch chips</span><span class="leds"><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="ms-concept-scaleup" aria-label="What is a scale-up network?">i</button>
+                </div>
+              </div>
+
+              <h3 class="rack-label">Inside one compute tray</h3>
+              <div class="tray-zoom">
+                <div class="part" data-part="gpu" data-role="gpu">
+                  <button class="part-btn"><span class="n">Maia 300</span><span class="s">×4 per tray</span></button>
+                  <button class="info-btn" popovertarget="ms-concept-asic" aria-label="What is an AI accelerator?">i</button>
+                </div>
+                <div class="part" data-part="cpu" data-role="cpu">
+                  <button class="part-btn"><span class="n">Host processor</span><span class="s">1 per tray · model not named</span></button>
+                  <button class="info-btn" popovertarget="ms-concept-cpu" aria-label="What is a host CPU?">i</button>
+                </div>
+              </div>
+
+              <h3 class="rack-label">Beyond the rack</h3>
+              <div class="beyond">
+                <div class="part" data-part="scaleout" data-role="net">
+                  <button class="part-btn"><span class="n">Optical second tier</span><span class="s">Joins up to 128 racks into a superpod</span></button>
+                  <button class="info-btn" popovertarget="ms-concept-scaleout" aria-label="What is the second network tier?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ---------- Right: detail panels ---------- -->
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">👈</div>
+                <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="power" data-role="power" hidden>
+                <span class="role">Rack infrastructure <button class="info-btn inline" popovertarget="ms-concept-cooling" aria-label="What is rack power and liquid cooling?">i</button></span>
+                <h3>Power &amp; liquid cooling</h3>
+                <div class="count">Per rack · 167 kW envelope</div>
+                <p class="why"><strong>Why it's special:</strong> a Maia 300 rack is designed for about 167 kW, roughly 2.6 times Maia 200's 64 kW rack <span class="tag tag-verify">PRESS</span> (derived). Liquid removes most of the heat and air handles the rest, so the rack fits water-cooled and air-cooled data centres.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">167 kW</span><span class="l">rack power envelope</span></div>
+                  <div class="stat"><span class="v">&gt;80%</span><span class="l">of heat removed by liquid</span></div>
+                  <div class="stat"><span class="v">50 V</span><span class="l">busbar down the rack</span></div>
+                  <div class="stat"><span class="v">Dual</span><span class="l">power feeds, plus an automatic transfer switch</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Liquid cools the accelerators, voltage regulators and switch chips. Air cools memory, storage and other parts.</li>
+                      <li>Connects to facility water, or uses a heat-exchanger unit where the building is air-cooled.</li>
+                      <li>Rack and row power readings guide where jobs are placed.</li>
+                      <li>Weight and coolant flow are not published.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="tray">Compute trays</button><button data-goto="switch">Switch trays</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="tray" data-role="tray" hidden>
+                <span class="role">Building block <button class="info-btn inline" popovertarget="ms-concept-tray" aria-label="What is a compute tray?">i</button></span>
+                <h3>Compute tray</h3>
+                <div class="count">×24 per rack · 4 accelerators each</div>
+                <p class="why"><strong>Why it's special:</strong> each tray carries its own host processor, memory, storage and cooling, so Maia 300 has no separate host trays. That frees space for 96 accelerators per rack, double Maia 200. The two accelerators in a pair link directly inside the tray.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">96</span><span class="l">accelerators per rack (24 × 4)</span></div>
+                  <div class="stat"><span class="v">27.6 TB</span><span class="l">HBM4 per rack</span></div>
+                  <div class="stat"><span class="v">1.7 PB/s</span><span class="l">HBM bandwidth per rack</span></div>
+                  <div class="stat"><span class="v">1,324 PF</span><span class="l">FP4 per rack (derived: 96 × 13.8)</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Puts four accelerators next to their host, so one board is one serviceable unit.</li>
+                      <li>Uses a 1U tray format, down from 2U on Maia 200 <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Per tray (derived): about 1.15 TB of HBM4 and about 55 PF of FP4.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="gpu">Maia 300 accelerator</button><button data-goto="cpu">Host processor</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="switch" data-role="net" hidden>
+                <span class="role">Scale-up network <button class="info-btn inline" popovertarget="ms-concept-scaleup" aria-label="What is a scale-up network?">i</button></span>
+                <h3>Scale-up switch trays</h3>
+                <div class="count">×3 trays · 6 switch chips</div>
+                <p class="why"><strong>Why it's special:</strong> instead of a proprietary link, Maia 300 uses Ethernet-based networking with Microsoft's own AI transport on top. The network controller sits on the accelerator, so chips talk to each other without a discrete scale-out NIC.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">3</span><span class="l">liquid-cooled switch trays</span></div>
+                  <div class="stat"><span class="v">6</span><span class="l">high-radix switch chips</span></div>
+                  <div class="stat"><span class="v">3.2 TB/s</span><span class="l">per accelerator, bidirectional (32 × 400 Gb/s)</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">+14%</span><span class="l">scale-up bandwidth vs Maia 200</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>All links inside the rack are electrical (copper).</li>
+                      <li>Three distances: a direct pair, the same rack (one switch hop), or another rack (three hops).</li>
+                      <li>Lets prefill and decode run on different accelerators and pass the KV cache directly.</li>
+                      <li>Switch-chip vendor and per-chip speed are not named.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="gpu">Every accelerator</button><button data-goto="scaleout">Optical second tier</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="gpu" data-role="gpu" hidden>
+                <span class="role">Accelerator <button class="info-btn inline" popovertarget="ms-concept-asic" aria-label="What is an AI accelerator?">i</button></span>
+                <h3>Maia 300</h3>
+                <div class="count">×96 per rack · TSMC N2P compute chiplets · 950 W</div>
+                <p class="why"><strong>Why it's special:</strong> memory bandwidth. Eight HBM4 stacks give 288 GB at 18 TB/s, about 2.5 times Maia 200, while compute rises only 36%. Microsoft calls it inference-first, for long contexts and decode-heavy work. Open "The chip" tab for its blocks.</p>
+                <h4 class="sub">Key numbers (per chip)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">288 GB</span><span class="l">HBM4 (Rubin: 288 GB)</span></div>
+                  <div class="stat"><span class="v">18 TB/s</span><span class="l">memory bandwidth</span></div>
+                  <div class="stat"><span class="v">13.8 PF</span><span class="l">FP4 (formats differ across vendors)</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">6.9 PF</span><span class="l">FP8</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Runs inference maths, mainly for Microsoft's own services.</li>
+                      <li>950 W chip power, up from 750 W on Maia 200.</li>
+                      <li>Not deployed yet. Microsoft says production starts in 2027, with no customer instances announced.</li>
+                      <li>Compare: AMD MI455X has 432 GB at 23.3 TB/s. Nvidia Rubin quotes 50 PF NVFP4 inference, a different number format.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="switch">Switch trays</button><button data-goto="cpu">Host processor</button><button data-goto="scaleout">Cluster network</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="cpu" data-role="cpu" hidden>
+                <span class="role">Host CPU <button class="info-btn inline" popovertarget="ms-concept-cpu" aria-label="What is a host CPU?">i</button></span>
+                <h3>Host processor</h3>
+                <div class="count">One per tray · model not named by Microsoft</div>
+                <p class="why"><strong>Why it's special:</strong> it is built into each tray, not in a separate server. Microsoft has not said which CPU it is.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">1 per tray</span><span class="l">host, with its own memory and storage</span></div>
+                  <div class="stat"><span class="v">PCIe Gen6 x16</span><span class="l">accelerator host interface</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">132 cores</span><span class="l">presumed Cobalt 200 (analyst guess, unconfirmed)</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Boots the tray and feeds its four accelerators.</li>
+                      <li>Microsoft has described no DPU, security chip or Azure Boost card for Maia 300, and its Maia 200 post does not cover them either.</li>
+                      <li>Cobalt is Microsoft's own Arm CPU line; use with Maia 300 is not confirmed.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="gpu">4 accelerators</button><button data-goto="tray">Compute tray</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="scaleout" data-role="net" hidden>
+                <span class="role">Scale-up, tier two <button class="info-btn inline" popovertarget="ms-concept-scaleout" aria-label="What is the second network tier?">i</button></span>
+                <h3>Optical second tier: the superpod</h3>
+                <div class="count">Outside the rack · up to 128 racks</div>
+                <p class="why"><strong>Why it's special:</strong> one scale-up fabric spans many racks. Optical switches join up to 128 racks into a superpod of 12,288 accelerators, with the same Ethernet-based transport. Maia 200 reached 6,144.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">12,288</span><span class="l">accelerators per superpod</span></div>
+                  <div class="stat"><span class="v">128</span><span class="l">racks (128 × 96 = 12,288)</span></div>
+                  <div class="stat"><span class="v">750 GB/s</span><span class="l">per accelerator to any superpod peer</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does here</h4>
+                    <ul>
+                      <li>Lets one job span many racks with the same transport.</li>
+                      <li>Supports hot-spare capacity across racks.</li>
+                      <li>Optical-switch vendor is not named.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="switch">In-rack switches</button><button data-goto="gpu">Accelerators</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards (ⓘ) ===================== -->
+          <div class="concept" id="ms-concept-cooling" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Rack power &amp; liquid cooling</h4></div>
+            <button class="close" popovertarget="ms-concept-cooling" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>A modern AI rack draws as much power as well over a hundred homes, and nearly all of it becomes heat. Fans alone cannot remove that.</p>
+              <p><b>Direct liquid cooling</b> pumps coolant through plates on the chips. A <b>busbar</b> is a thick metal rail that carries power down the rack. A <b>heat-exchanger unit</b> lets a liquid-cooled rack work in a building with no chilled-water supply.</p>
+              <div class="analogy"><b>Analogy:</b> a car engine. Air cooling is enough for a lawnmower; a racing engine needs a radiator.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="ms-concept-tray" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a compute tray?</h4></div>
+            <button class="close" popovertarget="ms-concept-tray" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>A tray is a flat drawer that slides into the rack. It holds a few accelerators, their host CPU and memory on one board.</p>
+              <p>Racks are built from identical trays, so a faulty one can be swapped quickly.</p>
+              <div class="analogy"><b>Analogy:</b> books on a shelf. The rack is the shelf and each tray is a book.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="ms-concept-scaleup" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a scale-up network?</h4></div>
+            <button class="close" popovertarget="ms-concept-scaleup" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>Big models are split across many chips that must swap partial results constantly. A <b>scale-up</b> network links chips with very high bandwidth and low delay, so they act like one big chip.</p>
+              <p>Maia uses <b>Ethernet</b>, the everyday networking standard, with Microsoft's own AI transport layer on top.</p>
+              <div class="analogy"><b>Analogy:</b> people in one open-plan room who can just talk, versus emailing another office.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="ms-concept-asic" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is an AI accelerator (ASIC)?</h4></div>
+            <button class="close" popovertarget="ms-concept-asic" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>An <b>ASIC</b> is a chip designed for one job. Maia is built for AI inference: running a trained model to answer requests.</p>
+              <p>Next to the maths units sits <b>HBM</b>, stacked memory that holds the model. Reading it is often the limit on speed.</p>
+              <div class="analogy"><b>Analogy:</b> a GPU is a Swiss Army knife; an ASIC is a tool made for exactly one job.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="ms-concept-cpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a host CPU?</h4></div>
+            <button class="close" popovertarget="ms-concept-cpu" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>Accelerators cannot run an operating system. A <b>host CPU</b> boots the machine, loads data and launches work onto the accelerators.</p>
+              <div class="analogy"><b>Analogy:</b> the head chef who reads the orders and hands tasks to the line cooks.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="ms-concept-scaleout" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is the second network tier?</h4></div>
+            <button class="close" popovertarget="ms-concept-scaleout" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>Inside a rack, chips connect through switches in the rack. To link many racks, Maia 300 adds a second tier of <b>optical</b> switches that carry light over fibre.</p>
+              <p>Microsoft still calls the whole thing one scale-up fabric.</p>
+              <div class="analogy"><b>Analogy:</b> streets inside a city (tier one) and the motorway between cities (tier two).</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ===================== Block 3: The accelerator chip ===================== -->
+      <div class="tab-panel" id="tab-chip" role="tabpanel" aria-labelledby="tab-chip-btn" hidden>
+        <div class="section-head">
+          <h2>Inside Maia 300</h2>
+          <p>Click any block on the chip. Tap <b>ⓘ</b> to learn what that block is.</p>
+        </div>
+        <p class="legend">Illustrative schematic, not a die photo or to scale. Microsoft hasn't published a floorplan, so block positions and counts are simplified. Figures are Microsoft's own unless tagged <span class="tag tag-verify">PRESS</span>.</p>
+
+        <div data-explorer data-noun="blocks on the chip">
+          <div class="explorer-progress"><span class="count"></span><div class="bar" aria-hidden="true"><span></span></div></div>
+
+          <div class="explorer die-layout">
+            <div>
+              <div class="die-scroll">
+                <div class="package mi-pkg" role="group" aria-label="Maia 300 package schematic (illustrative)">
+                  <div class="core a-core">
+                    <div class="fcd">
+                      <div class="die-label">Compute region 1</div>
+                      <div class="part" data-part="tiles" data-role="compute">
+                      <button class="part-btn"><span class="n">Tile cluster</span><span class="s">12 tiles</span></button>
+                      <button class="info-btn" popovertarget="ms-concept-chiplet" aria-label="What is a chiplet?">i</button>
+                    </div>
+                      <div class="part" data-part="tiles" data-role="compute"><button class="part-btn"><span class="n">Tile cluster</span><span class="s">12 tiles</span></button></div>
+                      <div class="part fcd-bar" data-part="sram" data-role="cache">
+                      <button class="part-btn"><span class="n">SRAM scratchpad</span></button>
+                      <button class="info-btn" popovertarget="ms-concept-sram" aria-label="What is on-die SRAM?">i</button>
+                    </div>
+                      <div class="part fcd-bar" data-part="dma" data-role="sched">
+                      <button class="part-btn"><span class="n">DMA engines</span></button>
+                      <button class="info-btn" popovertarget="ms-concept-dma" aria-label="What is a DMA engine?">i</button>
+                    </div>
+                    </div>
+                    <div class="fcd">
+                      <div class="die-label">Compute region 2</div>
+                      <div class="part" data-part="tiles" data-role="compute"><button class="part-btn"><span class="n">Tile cluster</span><span class="s">12 tiles</span></button></div>
+                      <div class="part" data-part="tiles" data-role="compute"><button class="part-btn"><span class="n">Tile cluster</span><span class="s">12 tiles</span></button></div>
+                      <div class="part fcd-bar" data-part="sram" data-role="cache"><button class="part-btn"><span class="n">SRAM scratchpad</span></button></div>
+                      <div class="part fcd-bar" data-part="dma" data-role="sched"><button class="part-btn"><span class="n">DMA engines</span></button></div>
+                    </div>
+                  </div>
+
+                  <div class="hbm-col a-hbmL">
+                    <div class="part" data-part="hbm" data-role="mem">
+                      <button class="part-btn"><span class="n">HBM4</span></button>
+                      <button class="info-btn" popovertarget="ms-concept-hbm" aria-label="What is HBM?">i</button>
+                    </div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                  </div>
+                  <div class="hbm-col a-hbmR">
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                  </div>
+
+                  <div class="io-row a-iodT">
+                    <div class="part" data-part="nic" data-role="io">
+                      <button class="part-btn"><span class="n">AI network controller</span><span class="s">Ethernet scale-up</span></button>
+                      <button class="info-btn" popovertarget="ms-concept-scaleup" aria-label="What is a scale-up network?">i</button>
+                    </div>
+                  </div>
+                  <div class="io-row a-iodB">
+                    <div class="part" data-part="host" data-role="io">
+                      <button class="part-btn"><span class="n">Host link</span><span class="s">PCIe Gen6 x16</span></button>
+                      <button class="info-btn" popovertarget="ms-concept-pcie" aria-label="What is a host link?">i</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="die-caption">Illustrative: 8 HBM4 stacks around compute and I/O silicon. Reportedly seven chips plus eight HBM4 stacks on one interposer <span class="tag tag-verify">PRESS</span>.</p>
+            </div>
+
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">🔬</div>
+                <p><strong>Zoom into the silicon.</strong><br>Start with the tile clusters, where the maths happens.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="tiles" data-role="compute" hidden>
+                <span class="role">Compute <button class="info-btn inline" popovertarget="ms-concept-chiplet" aria-label="What is a chiplet?">i</button></span>
+                <h3>Compute tiles</h3>
+                <div class="count">4 tile clusters × 12 tiles <span class="tag tag-verify">PRESS</span> · TSMC N2P</div>
+                <p class="why"><strong>Why it's special:</strong> Maia 300 is the first chiplet-based Maia. Compute sits on 2 nm-class N2P silicon, while memory control and I/O sit on separate dies. Maia 100 and 200 were single dies <span class="tag tag-verify">PRESS</span>.</p>
+                <h4 class="sub">Key numbers (whole chip)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">13.8 PF</span><span class="l">FP4</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">6.9 PF</span><span class="l">FP8</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">+36%</span><span class="l">compute vs Maia 200</span></div>
+                  <div class="stat"><span class="v">~280 B</span><span class="l">transistors, analyst estimate</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Each tile has a tensor unit (matrix maths) and a vector processor (other maths) <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Adds enhanced MXFP4 and sub-3-bit storage formats, with hardware format conversion.</li>
+                      <li>BF16 rate is not published. The package is reportedly seven chips plus eight HBM4 stacks <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="sram">On-die SRAM</button><button data-goto="dma">Data movement</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="sram" data-role="cache" hidden>
+                <span class="role">On-chip memory <button class="info-btn inline" popovertarget="ms-concept-sram" aria-label="What is on-die SRAM?">i</button></span>
+                <h3>On-die SRAM</h3>
+                <div class="count">Software-managed scratchpad · size not disclosed</div>
+                <p class="why"><strong>Why it's special:</strong> Maia has no automatic cache here. Software decides what sits in SRAM and when it moves, so data arrives just in time. Maia 200 had 272 MB; Microsoft has not said how much Maia 300 has.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Not disclosed</span><span class="l">Maia 300 capacity</span></div>
+                  <div class="stat"><span class="v">272 MB</span><span class="l">Maia 200, for reference</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Holds tile-local and cluster-shared data next to the maths units.</li>
+                      <li>Cuts trips to HBM, which saves power.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="tiles">Compute tiles</button><button data-goto="hbm">HBM4</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="hbm" data-role="mem" hidden>
+                <span class="role">Memory <button class="info-btn inline" popovertarget="ms-concept-hbm" aria-label="What is HBM?">i</button></span>
+                <h3>HBM4 memory</h3>
+                <div class="count">8 stacks · 288 GB</div>
+                <p class="why"><strong>Why it's special:</strong> bandwidth per watt. 18 TB/s is about 2.5 times Maia 200's, and Microsoft says HBM bandwidth per watt roughly doubles. Memory is split into regions (NUMA), no longer one shared pool as on Maia 200.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">288 GB</span><span class="l">capacity (+33% vs Maia 200)</span></div>
+                  <div class="stat"><span class="v">18 TB/s</span><span class="l">bandwidth</span></div>
+                  <div class="stat"><span class="v">27.6 TB</span><span class="l">per rack</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Holds model weights and the KV cache for requests in flight.</li>
+                      <li>Rubin also has 288 GB of HBM4. AMD MI455X has 432 GB at 23.3 TB/s.</li>
+                      <li>Press reports four HBM4 regions, each tied to a pair of compute tiles <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="tiles">Compute tiles</button><button data-goto="sram">SRAM</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="dma" data-role="sched" hidden>
+                <span class="role">Data movement <button class="info-btn inline" popovertarget="ms-concept-dma" aria-label="What is a DMA engine?">i</button></span>
+                <h3>Data-movement engines (DMA)</h3>
+                <div class="count">Per tile and per cluster</div>
+                <p class="why"><strong>Why it's special:</strong> Maia moves data with dedicated hardware, not the maths units. This is the "software-defined dataflow" idea: software plans every move between SRAM, HBM and the network.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Not published</span><span class="l">engine counts or speeds</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Tile and cluster DMA engines shuttle data between SRAM and HBM.</li>
+                      <li>Reshaper and synchroniser blocks (added in Maia 200) help data flow from network to tile <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="tiles">Compute tiles</button><button data-goto="nic">Network controller</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="nic" data-role="io" hidden>
+                <span class="role">Scale-up I/O <button class="info-btn inline" popovertarget="ms-concept-scaleup" aria-label="What is a scale-up network?">i</button></span>
+                <h3>On-die AI network controller</h3>
+                <div class="count">32 × 400 Gb/s Ethernet <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> networking is built into the chip, so accelerators send data to each other directly, with no discrete scale-out NIC. The transport is Microsoft's own, run over standard Ethernet.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">3.2 TB/s</span><span class="l">bidirectional per accelerator</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">32</span><span class="l">links at 400 Gb/s</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">+14%</span><span class="l">vs Maia 200 (2.8 TB/s)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Connects to the three switch trays in the rack.</li>
+                      <li>Uses direct links for the pair in a tray, switched links beyond.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="dma">Data movement</button><button data-goto="host">Host link</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="host" data-role="io" hidden>
+                <span class="role">CPU link <button class="info-btn inline" popovertarget="ms-concept-pcie" aria-label="What is a host link?">i</button></span>
+                <h3>Host link</h3>
+                <div class="count">PCIe Gen6 x16 <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it matters:</strong> this is the corridor to the tray's host processor. PCIe is an industry standard, not a Microsoft-only link. Microsoft has not stated its bandwidth for Maia 300.</p>
+                <h4 class="sub">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">PCIe Gen6 x16</span><span class="l">host interface</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">4 : 1</span><span class="l">accelerators per host (derived)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4 class="sub">What it does</h4>
+                    <ul>
+                      <li>Carries commands, input data and results between host and accelerator.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 class="sub">Connects to</h4>
+                    <div class="links-to"><button data-goto="nic">Network controller</button><button data-goto="hbm">HBM4</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards for the chip (ⓘ) ===================== -->
+          <div class="concept" id="ms-concept-chiplet" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a chiplet?</h4></div>
+            <button class="close" popovertarget="ms-concept-chiplet" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>A <b>chiplet</b> is a small die combined with others in one package. Small dies are cheaper because a defect ruins less silicon, and each can use the process that suits it.</p>
+              <div class="analogy"><b>Analogy:</b> building a house from prefabricated rooms instead of carving one giant block.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="ms-concept-sram" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is on-die SRAM?</h4></div>
+            <button class="close" popovertarget="ms-concept-sram" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p><b>SRAM</b> is very fast memory on the chip itself. Most chips use it as an automatic cache. Maia lets software control it directly, as a <b>scratchpad</b>.</p>
+              <div class="analogy"><b>Analogy:</b> a cook's chopping board: tiny, but everything on it is within reach.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="ms-concept-hbm" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is HBM?</h4></div>
+            <button class="close" popovertarget="ms-concept-hbm" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p><b>High-bandwidth memory</b> stacks DRAM chips and places them beside the processor, joined by thousands of tiny wires.</p>
+              <p>It is much faster than normal memory, but costly and limited in size.</p>
+              <div class="analogy"><b>Analogy:</b> a multi-storey car park next to the stadium, with a hundred exits instead of one.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="ms-concept-dma" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a DMA engine?</h4></div>
+            <button class="close" popovertarget="ms-concept-dma" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>A <b>DMA</b> (direct memory access) engine is dedicated hardware that copies data from one memory to another without using the maths units.</p>
+              <div class="analogy"><b>Analogy:</b> a conveyor belt that restocks the chef's station while the chef keeps cooking.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="ms-concept-pcie" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a host link?</h4></div>
+            <button class="close" popovertarget="ms-concept-pcie" popovertargetaction="hide" aria-label="Close explainer"><span aria-hidden="true">×</span></button>
+            <div class="concept-body">
+              <p>The <b>host link</b> connects the accelerator to the CPU that controls it. <b>PCIe</b> is the standard link used inside most computers.</p>
+              <div class="analogy"><b>Analogy:</b> the corridor between the head chef's office and the kitchen.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ===================== Block 5: Software ecosystem ===================== -->
+      <div class="tab-panel" id="tab-sw" role="tabpanel" aria-labelledby="tab-sw-btn" hidden>
+        <h2>Microsoft's software stack</h2>
+        <div class="stack">
+          <div class="layer"><span class="name">Access</span><span>Microsoft Copilot, Microsoft Foundry (model serving), GitHub Copilot, Teams and Azure. Microsoft hasn't announced customer-rentable Maia instances.</span></div>
+          <div class="layer"><span class="name">Serving</span><span>Microsoft hasn't named a serving engine for Maia 300. Its design supports splitting prefill and decode across accelerators, with direct KV-cache transfer.</span></div>
+          <div class="layer"><span class="name">Frameworks</span><span><b>PyTorch</b>: Maia workflows "begin naturally with PyTorch" (Maia 200 SDK post)</span></div>
+          <div class="layer"><span class="name">Compiler</span><span><b>Maia Triton compiler</b> for fast kernel generation, plus a compiler pipeline, profiler and debugger (Maia 200 SDK)</span></div>
+          <div class="layer"><span class="name">Kernels</span><span>Optimised kernel library and <b>NPL</b> (Nested Parallel Language), for explicit control of data movement and SRAM placement. A full <b>simulator</b> lets teams test before silicon arrives (Maia 200 SDK)</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="v">Maia SDK</span><span class="l">documented for Maia 200; one analyst reports Maia 300 uses it</span><span class="tag tag-verify">PRESS</span></div>
+          <div class="stat"><span class="v">AI-assisted</span><span class="l">kernel tuning reported</span><span class="tag tag-verify">PRESS</span></div>
+          <div class="stat"><span class="v">Dataflow</span><span class="l">software plans moves between SRAM, HBM and network</span></div>
+          <div class="stat"><span class="v">Not stated</span><span class="l">any new 2026 SDK release for Maia 300</span></div>
+        </div>
+        <p class="note"><b>Why it matters:</b> Maia has no automatic cache to hide poor data placement, so the compiler and kernels carry more of the speed. Microsoft's SDK post covers Maia 200 only; its Maia 300 posts name no software. Microsoft is also tuning its own models and chips together, so most Maia code is its own.</p>
+        <p><a href="../software.html">Compare with other vendors <span aria-hidden="true">→</span></a></p>
+      </div>
+
+      <!-- ===================== Block 6: Claims ===================== -->
+      <div class="tab-panel" id="tab-claims" role="tabpanel" aria-labelledby="tab-claims-btn" hidden>
+        <h2>Headline claims</h2>
+        <p class="legend">These are Microsoft's projections for a chip not yet deployed. Microsoft doesn't name the GPU system or the test setup behind the 40% claim, and no outside party has tested Maia 300 <span class="tag tag-verify">PRESS</span>.</p>
+        <div class="claims">
+          <div class="claim card"><span class="value">+40%</span><span>more tokens per megawatt than leading GPU-based systems</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">Up to 7×</span><span>rack-scale token throughput vs a Maia 200 rack (96 vs 48 accelerators)</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">&gt;2.5×</span><span>performance per watt vs Maia 200</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">~2×</span><span>HBM bandwidth per watt vs Maia 200</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">1.7×</span><span>tokens per watt: Maia 200 vs leading GPU systems, on Teams, Copilot and Cowork</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">Not independent</span><span>no third-party benchmark of Maia 300 exists yet</span><span class="tag tag-verify">PRESS</span></div>
+        </div>
+
+        <h3>Maia 300 vs Maia 200</h3>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Spec</th><th>Maia 200 (Jan 2026)</th><th>Maia 300 (announced Oct 2026)</th></tr></thead>
+            <tbody>
+              <tr><td>Status</td><td>In production (US, Europe, Australia)</td><td>Production deployments from 2027</td></tr>
+              <tr><td>Process</td><td>TSMC 3nm</td><td>TSMC N2P compute chiplets</td></tr>
+              <tr><td>Layout</td><td>Single die <span class="tag tag-verify">PRESS</span></td><td>Chiplets</td></tr>
+              <tr><td>Transistors</td><td>&gt;140 billion</td><td>~280 billion, analyst estimate <span class="tag tag-verify">PRESS</span></td></tr>
+              <tr><td>FP4 / FP8</td><td>&gt;10 PF / &gt;5 PF</td><td>13.8 PF / 6.9 PF <span class="tag tag-verify">PRESS</span></td></tr>
+              <tr><td>HBM</td><td>216 GB HBM3e, 7 TB/s</td><td>288 GB HBM4, 18 TB/s</td></tr>
+              <tr><td>On-die SRAM</td><td>272 MB</td><td>Not disclosed</td></tr>
+              <tr><td>Chip power</td><td>750 W</td><td>950 W</td></tr>
+              <tr><td>Scale-up per chip</td><td>2.8 TB/s bidirectional</td><td>3.2 TB/s <span class="tag tag-verify">PRESS</span> (+14%)</td></tr>
+              <tr><td>Largest domain</td><td>6,144 accelerators</td><td>12,288 accelerators</td></tr>
+              <tr><td>Rack</td><td>48 accelerators, 64 kW <span class="tag tag-verify">PRESS</span></td><td>96 accelerators, 167 kW</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Compute grows 36% while HBM bandwidth grows 2.5×. Microsoft is betting that inference is limited by memory, not maths. FP4 numbers across vendors use different formats, so don't compare them directly.</p>
+        <h3>What's next</h3>
+        <p>Microsoft says it will share more at Ignite 2026. Design partner, host CPU, SRAM size and any DPU or security chip remain undisclosed.</p>
+      </div>
+    </section>
+
+    <nav class="pager" aria-label="Previous and next provider">
+      <a href="aws.html"><span aria-hidden="true">←</span> AWS</a>
+      <a href="qualcomm.html">Qualcomm <span aria-hidden="true">→</span></a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">Sources:
+      <a href="https://azure.microsoft.com/en-us/blog/deep-dive-into-azure-maia-300-architecture/">Azure blog: Maia 300 architecture</a> ·
+      <a href="https://blogs.microsoft.com/blog/2026/10/12/microsoft-to-expand-azure-maia-system-to-multi-gigawatt-deployments/">Microsoft blog: multi-gigawatt Maia</a> ·
+      <a href="https://azure.microsoft.com/en-us/blog/infrastructure-for-the-frontier-era-scaling-intelligence-through-open-industry-collaboration/">Azure blog: open collaboration</a> ·
+      <a href="https://blogs.microsoft.com/blog/2026/01/26/maia-200-the-ai-accelerator-built-for-inference/">Microsoft blog: Maia 200</a> ·
+      <a href="https://techcommunity.microsoft.com/blog/azureinfrastructureblog/deep-dive-into-the-maia-200-architecture/4489312">Maia 200 architecture</a> ·
+      <a href="https://www.nextplatform.com/compute/2026/10/13/microsofts-clea-maia-300-inference-xpu-is-a-bandwidth-beast/5302874">The Next Platform</a> ·
+      <a href="https://www.storagereview.com/news/microsoft-maia-300-hbm4-n2p-chiplet-96-accelerator-rack">StorageReview</a> ·
+      <a href="https://moorinsightsstrategy.com/field-notes/microsoft-azure-maia-300-from-custom-chip-to-hyperscale-platform/">Moor Insights</a>
+      <p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/rack-explorer.js"></script>
+<script src="../assets/js/glossary.js" defer></script>
+</body>
+</html>

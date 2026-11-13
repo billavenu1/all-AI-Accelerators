@@ -1,0 +1,54 @@
+
+/* ================================================================== v2 shell (appended by tools/build_inner.py)
+   The inner pages keep the original markup and classes; everything below re-skins them to the
+   v2 look (near-black ground, bronze accent, Reddit Sans) and adds the fixed header. */
+html { scroll-behavior: auto; scroll-padding-top: calc(var(--top-h) + 16px); }
+body { background: var(--bg); font: 400 16px/1.6 var(--font); padding-top: calc(var(--top-h) + var(--side-row, 0px)); }
+h1, h2, h3, h4, h5 { font-family: var(--display); font-weight: 500; letter-spacing: -.02em; }
+h1 { font-size: clamp(2.1rem, 4.4vw, 3.5rem); letter-spacing: -.035em; line-height: 1.04; }
+h2 { letter-spacing: -.025em; }
+a { color: var(--link); }
+.wrap { max-width: var(--max); padding: 0 32px; }
+@media (max-width: 639px) { .wrap { padding: 0 20px; } }
+main { padding: 24px 0 72px; }
+section { margin: 48px 0; }
+.grad-text { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--link); }
+.lede { color: #c4c4c4; }
+
+/* header */
+.top { position: fixed; z-index: 20; inset: 0 0 auto 0; height: var(--top-h); background: var(--bg); border-bottom: 1px solid var(--border); }
+.top__bar { display: flex; align-items: center; gap: 32px; height: 100%; padding: 0 32px; }
+.top__logo { display: inline-flex; align-items: center; gap: 8px; font: 500 20px/1 var(--display); letter-spacing: -.02em; color: var(--text); text-decoration: none; white-space: nowrap; }
+.top__logo svg { width: 18px; height: 18px; fill: var(--accent-2); }
+.top__links { display: flex; gap: 4px; }
+.top__links a { padding: 8px 12px; border-radius: 99px; font-size: 15px; font-weight: 500; color: var(--text); text-decoration: none; }
+.top__links a:hover { background: var(--surface-2); }
+.top__links a[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--accent-2); border-radius: 0; }
+.top__cta { margin-left: auto; }
+.top a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.skip { position: absolute; left: 12px; top: -80px; z-index: 30; padding: 10px 14px; border-radius: 8px; background: var(--text); color: var(--bg); }
+.skip:focus { top: 12px; }
+@media (max-width: 767px) { .top__bar { gap: 12px; padding: 0 20px; } .top__links a:not([aria-current]) { display: none; } .top__cta { display: none; } .top__logo { font-size: 17px; } }
+
+/* buttons and pills on the bronze fill take the dark ink */
+.btn { background: var(--accent-2); color: #111111; box-shadow: none; font-weight: 500; transition: background-color .15s, transform .1s; }
+.btn:hover { transform: none; background: #b39a87; }
+.btn:active { transform: translateY(1px); }
+.btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: #303030; }
+.timeline .gen.latest, .tabs button[aria-selected="true"], .variant-select select { color: #111111; box-shadow: none; }
+.concept .concept-head, .did-you-know { color: #111111; }
+.concept .concept-head .eyebrow { background: rgb(17 17 17 / .14); color: #111111; }
+.concept .close { background: rgb(17 17 17 / .16); color: #111111; }
+.did-you-know a { color: #111111 !important; }
+.asof, .eyebrow { color: var(--link); text-transform: none; letter-spacing: 0; font: 500 13px/1.4 var(--font); }
+.card, .stat, .table-scroll { box-shadow: none; }
+.provider-card:hover { box-shadow: none; transform: translateY(-2px); }
+.stat .v, .claim .value { font-weight: 500; letter-spacing: -.02em; }
+th { font-weight: 500; }
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+/* footer */
+.site-footer { border-top: 1px solid var(--border); padding: 28px 0 40px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.site-footer a { color: #c9c9c9; }
+.site-footer__legal { margin-top: 12px; font-size: 13px; }

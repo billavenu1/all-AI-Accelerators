@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="soft" data-ground="sage" data-buttons="pill" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Accelerators 101: a guide to AI chips, rack by rack</title>
+<meta name="description" content="Eight flagship AI machines from Nvidia, AMD, Google, AWS, Microsoft, Qualcomm, Cerebras and Groq, opened part by part for people new to AI hardware.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="AI Accelerators 101: a guide to AI chips, rack by rack">
+<meta property="og:description" content="Eight flagship AI machines, opened part by part for people new to AI hardware.">
+<meta property="og:image" content="share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#111111">
+<!-- <link rel="canonical" href="https://[the site's domain]/"> -->
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>
+:root {
+  --p-bg: #111111; --p-surface: #1c1c1c; --p-ink: #f2f2f2; --p-muted: #8f8f8f;
+  --p-accent: #a08672; --p-accent-ink: #111111; --p-action: #a08672; --p-action-ink: #111111;
+  --p-inv-bg: #f2f2f2; --p-inv-surface: #e0e0e0; --p-inv-ink: #111111; --p-inv-muted: #5c5c5c;
+  --p-inv-accent: #a08672; --p-inv-accent-ink: #111111; --p-inv-action: #a08672; --p-inv-action-ink: #111111;
+  --font-display: "Reddit Sans", system-ui, sans-serif;
+  --font-text: "Reddit Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+}
+</style>
+<link rel="stylesheet" href="assets/side.css">
+<link rel="stylesheet" href="assets/ui/base.css">
+<link rel="stylesheet" href="assets/diagrams/diagram.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/counter-rolls/moment.js">
+<link rel="modulepreload" href="assets/moments/line-carries-colour/moment.js">
+<!-- page CSS: only what sits inside a visual, and one --p-h per card group -->
+<style>
+  /* the hero's window: the site's own rack explorer, the list of machines beside the open rack */
+  .rx { border-radius: var(--u-r); background: var(--u-bg); border: 1px solid var(--u-border); box-shadow: var(--u-shadow); overflow: hidden; font: 400 13px/1.4 var(--font-text); color: var(--u-ink); }
+  .rx__bar { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 14px; border-bottom: 1px solid var(--u-line); color: var(--u-muted); white-space: nowrap; }
+  .rx__bar b { font-weight: 500; color: var(--u-ink); }
+  .rx__bar .sp { flex: 1; }
+  .rx__body { display: grid; grid-template-columns: 264px minmax(0, 1fr); min-height: 420px; }
+  .rx__list { display: grid; align-content: start; gap: 2px; padding: 10px; border-right: 1px solid var(--u-line); }
+  .rx__item { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 10px; align-items: center; padding: 7px 8px; border-radius: 9px; }
+  .rx__item.is-on { background: var(--u-fill-2); }
+  .rx__item .ic-tile { --tile: 30px; grid-row: 1 / span 2; }
+  .rx__item b { font-weight: 500; }
+  .rx__item span:last-child { color: var(--u-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rx__open { display: grid; align-content: start; gap: 12px; padding: 16px 18px; min-width: 0; }
+  .rx__title { display: flex; align-items: baseline; gap: 10px; font-size: 16px; font-weight: 500; }
+  .rx__title span { font-size: 13px; font-weight: 400; color: var(--u-muted); }
+  .rx__parts { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .rx__part { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 12px; border-radius: 9px; background: var(--u-fill); }
+  .rx__part.is-on { background: var(--u-tint); box-shadow: inset 2px 0 0 var(--u-accent); }
+  .rx__part i { font: 500 13px/1 var(--font-mono); font-style: normal; color: var(--u-muted); }
+  .rx__part b { font-weight: 500; }
+  .rx__part span { color: var(--u-muted); white-space: nowrap; }
+  .rx__note { margin: 0; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--u-line); color: var(--u-text-2); }
+  @media (max-width: 767px) { .rx__body { grid-template-columns: minmax(0, 1fr); } .rx__list { display: none; } .rx__bar .sp ~ span { display: none; } }
+  @media (max-width: 639px) { .rx__part { grid-template-columns: 44px minmax(0, 1fr); } .rx__part span, .rx__note { display: none; } }
+
+  /* the three camps: each panel holds its makers' real logos */
+  #camps .panel { --p-h: 236px; display: grid; place-items: center; }
+  .logos { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px; padding: 24px; }
+  .logos .ic-tile { --tile: 72px; --tile-bg: #ffffff; }
+  @media (min-width: 640px) and (max-width: 1023px) { #camps .panel { --p-h: 120px; } .logos .ic-tile { --tile: 48px; } }
+  @media (max-width: 639px) { #camps .panel { --p-h: 104px; } .logos .ic-tile { --tile: 44px; } }
+
+  /* the eight rack cards */
+  .rack { display: grid; align-content: start; gap: var(--s-2); }
+  .rack__top { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); margin-bottom: var(--s-4); }
+  .rack .ic-tile { --tile-bg: #ffffff; }
+  .rack__line { font-family: var(--font-mono); font-size: 13px; line-height: 1.5; color: var(--muted); }
+  @media (min-width: 640px) and (max-width: 1023px) { #racks .grid > .card { grid-column: auto / span 6; } .rack__line { display: none; } }
+  @media (max-width: 639px) { #racks .grid > .card { grid-column: auto / span 6; padding: 16px; } .rack__line, .rack p { display: none; } .rack__top { flex-direction: column; align-items: flex-start; margin-bottom: var(--s-2); } }
+
+  /* the close: the name across the wrap */
+  .closing__cta.close--word { container-type: inline-size; }
+  .close__word { font-size: 13cqw; white-space: nowrap; }
+  /* beside the provider bar the content keeps a narrower gutter */
+  @media (min-width: 1024px) { body.has-side > main, body.has-side > footer { --gut: 48px; } }
+  /* below 1024px the bar is a row of logo tiles under the header (--side-row, side.css): the page starts under it */
+  @media (max-width: 1023px) { body.has-side > main { padding-top: var(--side-row); } }
+  /* a phone's bar holds the name and the menu button; the main action is the hero's button */
+  @media (max-width: 639px) { .nav__bar > .nav__actions { display: none; } }
+  #parts .stats-row { margin-top: var(--s-7); }
+  @media (max-width: 639px) { #parts .stats-row > div { grid-column: auto / span 6; } }
+</style>
+</head>
+<body class="has-side">
+<!-- type: software (an interactive guide: the site's own rack explorer is the product)
+     deal: hero centred, nav nav-mega, close close-word, footer footer-dark, rhythm dark-band, buttons pill, mark arc, ground sage
+     palette lunar-grey-bronze, type reddit, effect fluted-glass (the hero frame)
+     moments: counter-rolls (the figures row in #parts), line-carries-colour (#software, the dark band) -->
+
+<header class="nav">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top"><span class="mark" data-mark="arc" aria-hidden="true"></span>AI Accelerators 101</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#camps">Camps</a></div>
+      <div class="nav__item"><a class="nav__link" href="#parts">Parts</a></div>
+      <div class="nav__item">
+        <a class="nav__link" href="#racks">Racks <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <div class="menu-col span-3">
+              <p class="t-label">Merchant GPUs</p>
+              <a href="providers/nvidia.html">Nvidia<span>Vera Rubin NVL72</span></a>
+              <a href="providers/amd.html">AMD<span>MI455X in the Helios rack</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">Hyperscaler ASICs</p>
+              <a href="providers/google-tpu.html">Google TPU<span>TPU 8t, 8i, 8tx and 8i Max</span></a>
+              <a href="providers/aws.html">AWS<span>Trainium3 UltraServer</span></a>
+              <a href="providers/microsoft-maia.html">Microsoft<span>Maia 300</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">Specialists</p>
+              <a href="providers/qualcomm.html">Qualcomm<span>Dragonfly AI250</span></a>
+              <a href="providers/cerebras.html">Cerebras<span>WSE-3 Turbo in the CS-4</span></a>
+              <a href="providers/groq.html">Groq<span>LPU, sold through Nvidia</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" href="#software">Software</a></div>
+      <div class="nav__item"><a class="nav__link" href="#questions">Questions</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="#racks">See all eight racks</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="providers/nvidia.html"><span class="side__logo"><img src="assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="providers/amd.html"><span class="side__logo"><img src="assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="providers/google-tpu.html"><span class="side__logo"><img src="assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="providers/aws.html"><span class="side__logo"><img src="assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="providers/microsoft-maia.html"><span class="side__logo"><img src="assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="providers/qualcomm.html"><span class="side__logo"><img src="assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="providers/cerebras.html"><span class="side__logo"><img src="assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="providers/groq.html"><span class="side__logo"><img src="assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+<main id="top">
+  <!-- HERO: centred headline over the rack explorer's window, on the page's one effect -->
+  <section class="hero hero--centred" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text">
+      <div class="hero__c">
+        <a class="pill" href="compare.html"><span>Updated 12 November 2026</span><span class="muted">Compare side by side</span></a>
+        <h1 id="hero-h">AI chips explained, rack by rack</h1>
+        <p class="hero__lead">Eight flagship machines from Nvidia, AMD, Google, AWS, Microsoft, Qualcomm, Cerebras and Groq, opened part by part. Written for people new to AI hardware.</p>
+        <div class="btn-row"><a class="btn btn--primary" href="#racks">See all eight racks</a><a class="btn btn--secondary" href="primer.html">Read the primer</a></div>
+      </div>
+      <div class="hero__window" data-fx="fluted-glass" data-fx-seed="7" role="img" aria-label="The rack explorer open on Nvidia's Vera Rubin NVL72, listing its GPUs, CPUs and switch trays">
+        <div class="ly-piece ui rx" aria-hidden="true">
+          <div class="rx__bar"><span class="ui-dots"><i></i><i></i><i></i></span><span>Racks / Nvidia / <b>Vera Rubin NVL72</b></span><span class="sp"></span><span>Merchant GPU · shipping</span></div>
+          <div class="rx__body">
+            <div class="rx__list">
+              <div class="rx__item is-on"><span class="ic-tile"><img class="ic ic-wide" src="assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></div>
+              <div class="rx__item"><span class="ic-tile"><img class="ic ic-wide ic-ink" src="assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></div>
+              <div class="rx__item"><span class="ic-tile"><img class="ic" src="assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i</span></div>
+              <div class="rx__item"><span class="ic-tile"><img class="ic ic-land" src="assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></div>
+              <div class="rx__item"><span class="ic-tile"><img class="ic" src="assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></div>
+              <div class="rx__item"><span class="ic-tile"><img class="ic ic-wide" src="assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></div>
+              <div class="rx__item"><span class="ic-tile"><img class="ic ic-tall" src="assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></div>
+            </div>
+            <div class="rx__open">
+              <div class="rx__title">Inside the rack <span>4 of 9 parts opened</span></div>
+              <ul class="rx__parts">
+                <li class="rx__part is-on"><i>×72</i><b>Rubin GPU</b><span>288 GB HBM4 each</span></li>
+                <li class="rx__part"><i>×36</i><b>Vera CPU</b><span>one per two GPUs</span></li>
+                <li class="rx__part"><i>×9</i><b>NVLink 6 switch tray</b><span>3.6 TB/s per GPU</span></li>
+                <li class="rx__part"><i>×18</i><b>Compute tray</b><span>4 GPUs + 2 CPUs</span></li>
+              </ul>
+              <p class="rx__note">The switch lets all 72 GPUs read each other's memory, so software sees one large GPU.</p>
+              <ul class="rx__parts">
+                <li class="rx__part"><i>×1</i><b>ConnectX-9 SuperNIC</b><span>per compute tray</span></li>
+                <li class="rx__part"><i>×1</i><b>BlueField-4 DPU</b><span>per compute tray</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- CAMPS: three cards, each camp's makers as real logos -->
+  <section class="section" id="camps" aria-labelledby="camps-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="camps-h">Three camps build AI chips. <span class="muted">Each attacks a different limit.</span></h2>
+      </div>
+      <div class="grid">
+        <article class="card card--row span-4 m-nolift">
+          <h3>Merchant GPUs sell to anyone</h3>
+          <p>General-purpose parallel compute with large stacks of HBM4 memory, from Nvidia and AMD.</p>
+          <div class="panel"><div class="logos">
+            <span class="ic-tile ic-tile--wide"><img class="ic ic-wide" src="assets/icons/nvidia.svg" alt="Nvidia"></span>
+            <span class="ic-tile ic-tile--wide"><img class="ic ic-wide ic-ink ic-keep" src="assets/icons/amd.svg" alt="AMD"></span>
+          </div></div>
+        </article>
+        <article class="card card--row span-4 m-nolift">
+          <h3>Hyperscaler ASICs stay in one cloud</h3>
+          <p>Custom chips tuned for one company's workloads. You rent them, never buy them.</p>
+          <div class="panel"><div class="logos">
+            <span class="ic-tile"><img class="ic" src="assets/icons/google-icon.svg" alt="Google"></span>
+            <span class="ic-tile"><img class="ic ic-land" src="assets/icons/aws.svg" alt="AWS"></span>
+            <span class="ic-tile"><img class="ic" src="assets/icons/microsoft-icon.svg" alt="Microsoft"></span>
+          </div></div>
+        </article>
+        <article class="card card--row span-4 m-nolift">
+          <h3>Specialists attack the memory wall</h3>
+          <p>Compute beside the memory, a whole wafer as one chip, or SRAM only.</p>
+          <div class="panel"><div class="logos">
+            <span class="ic-tile ic-tile--wide"><img class="ic ic-wide" src="assets/icons/qualcomm.svg" alt="Qualcomm"></span>
+            <span class="ic-tile"><img class="ic ic-tall" src="assets/icons/cerebras.svg" alt="Cerebras"></span>
+            <span class="ic-tile ic-tile--wide"><img class="ic ic-wide" src="assets/icons/groq.svg" alt="Groq"></span>
+          </div></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- PARTS: the rack as the product; a hub diagram of one Nvidia rack, then the figures (counter-rolls) -->
+  <section class="section" id="parts" aria-labelledby="parts-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5 stack-4">
+          <h2 id="parts-h">One Nvidia rack runs on seven kinds of chip</h2>
+          <p class="t-lead">Only one of the seven is a GPU. CPUs, switches, NICs and DPUs matter as much as the accelerator, so every page in this guide takes a whole rack apart.</p>
+          <p class="t-lead muted">Six sit in or around the rack. The seventh is the Groq LPU in the rack next door.</p>
+        </div>
+        <div class="frame frame--split span-6 start-7">
+          <div class="dg" data-diagram><script type="application/json">{"layout":"hub","alt":"The Vera Rubin NVL72 rack connects Rubin GPUs, Vera CPUs, NVLink 6 switches, ConnectX-9 NICs, BlueField-4 DPUs and Spectrum-6 switches.","center":{"label":"NVL72 rack","icon":"ui:server"},"spokes":[{"label":"Rubin GPU","icon":"ui:cpu","meta":"72"},{"label":"Vera CPU","icon":"ui:microchip","meta":"36"},{"label":"NVLink 6","icon":"ui:network","meta":"9 trays"},{"label":"ConnectX-9","icon":"ui:router"},{"label":"BlueField-4","icon":"ui:hard-drive"},{"label":"Spectrum-6","icon":"ui:layers"}]}</script></div>
+        </div>
+      </div>
+      <div class="grid stats-row" data-moment="counter-rolls">
+        <div class="span-3"><p class="t-stat">72</p><p class="t-small muted">GPUs in one Nvidia or AMD rack</p></div>
+        <div class="span-3"><p class="t-stat">144</p><p class="t-small muted">Trainium3 chips in one AWS rack</p></div>
+        <div class="span-3"><p class="t-stat">256</p><p class="t-small muted">LPUs in one Groq rack</p></div>
+        <div class="span-3"><p class="t-stat">9,600</p><p class="t-small muted">TPU 8t chips in one Google pod</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RACKS: the eight machines, each a linked card -->
+  <section class="section" id="racks" aria-labelledby="racks-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="racks-h">Eight racks to take apart</h2>
+      </div>
+      <div class="grid">
+        <a class="card span-3 rack" href="providers/nvidia.html">
+          <span class="rack__top"><span class="ic-tile ic-tile--40 ic-tile--wide"><img class="ic ic-wide" src="assets/icons/nvidia.svg" alt=""></span><span class="t-label muted">Merchant GPU</span></span>
+          <h3>Nvidia</h3><p>Vera Rubin NVL72</p><span class="rack__line">H100 → GB300</span>
+        </a>
+        <a class="card span-3 rack" href="providers/amd.html">
+          <span class="rack__top"><span class="ic-tile ic-tile--40 ic-tile--wide"><img class="ic ic-wide ic-ink ic-keep" src="assets/icons/amd.svg" alt=""></span><span class="t-label muted">Merchant GPU</span></span>
+          <h3>AMD</h3><p>MI455X in Helios</p><span class="rack__line">MI250X → MI355X</span>
+        </a>
+        <a class="card span-3 rack" href="providers/google-tpu.html">
+          <span class="rack__top"><span class="ic-tile ic-tile--40"><img class="ic" src="assets/icons/google-icon.svg" alt=""></span><span class="t-label muted">Hyperscaler ASIC</span></span>
+          <h3>Google TPU</h3><p>TPU 8t, 8i, 8tx, 8i Max</p><span class="rack__line">v4 → Ironwood</span>
+        </a>
+        <a class="card span-3 rack" href="providers/aws.html">
+          <span class="rack__top"><span class="ic-tile ic-tile--40"><img class="ic ic-land" src="assets/icons/aws.svg" alt=""></span><span class="t-label muted">Hyperscaler ASIC</span></span>
+          <h3>AWS</h3><p>Trainium3</p><span class="rack__line">Inferentia → Trainium2</span>
+        </a>
+        <a class="card span-3 rack" href="providers/microsoft-maia.html">
+          <span class="rack__top"><span class="ic-tile ic-tile--40"><img class="ic" src="assets/icons/microsoft-icon.svg" alt=""></span><span class="t-label muted">Hyperscaler ASIC</span></span>
+          <h3>Microsoft</h3><p>Maia 300</p><span class="rack__line">Maia 100 → Maia 200</span>
+        </a>
+        <a class="card span-3 rack" href="providers/qualcomm.html">
+          <span class="rack__top"><span class="ic-tile ic-tile--40 ic-tile--wide"><img class="ic ic-wide" src="assets/icons/qualcomm.svg" alt=""></span><span class="t-label muted">Specialist</span></span>
+          <h3>Qualcomm</h3><p>Dragonfly AI250</p><span class="rack__line">AI 100 → AI200</span>
+        </a>
+        <a class="card span-3 rack" href="providers/cerebras.html">
+          <span class="rack__top"><span class="ic-tile ic-tile--40"><img class="ic ic-tall" src="assets/icons/cerebras.svg" alt=""></span><span class="t-label muted">Specialist</span></span>
+          <h3>Cerebras</h3><p>WSE-3 Turbo in CS-4</p><span class="rack__line">WSE-1 → WSE-3</span>
+        </a>
+        <a class="card span-3 rack" href="providers/groq.html">
+          <span class="rack__top"><span class="ic-tile ic-tile--40 ic-tile--wide"><img class="ic ic-wide" src="assets/icons/groq.svg" alt=""></span><span class="t-label muted">Specialist</span></span>
+          <h3>Groq</h3><p>LPU, Groq 3 via Nvidia</p><span class="rack__line">LPU v1 · GroqRack</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOFTWARE: the dark band (the inverse ground), line-carries-colour; a lanes diagram of the portability layer -->
+  <section class="section ground-inverse" id="software" aria-labelledby="software-h" data-moment="line-carries-colour" data-moment-opts='{"from": "base"}'>
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5 stack-4">
+          <h2 id="software-h">Software decides which chip runs your model</h2>
+          <p class="t-lead">CUDA has nearly two decades of libraries, tooling and developer habit behind it. Every other vendor tries to make the hardware underneath irrelevant, through PyTorch, Triton and MLIR.</p>
+          <ul class="rows">
+            <li><span class="rows__name">Nvidia</span><span class="rows__value">CUDA, mostly proprietary</span></li>
+            <li><span class="rows__name">AMD</span><span class="rows__value">ROCm and HIP, open source</span></li>
+            <li><span class="rows__name">Google</span><span class="rows__value">JAX and XLA, cloud only</span></li>
+          </ul>
+          <p><a class="link" href="software.html">See the software matrix</a></p>
+        </div>
+        <div class="frame frame--split span-6 start-7">
+          <div class="dg" data-diagram><script type="application/json">{"layout":"lanes","alt":"A PyTorch model is compiled once and runs on Nvidia through CUDA, on AMD through ROCm and on Google TPUs through XLA.","curve":"curve","input":{"label":"PyTorch 2.x","icon":"pytorch","meta":"your model"},"core":{"label":"Triton and MLIR","icon":"ui:layers"},"lanes":[{"label":"CUDA","icon":"ui:cpu","meta":"Nvidia","done":true},{"label":"ROCm","icon":"ui:cpu","meta":"AMD","done":true},{"label":"XLA","icon":"ui:cpu","meta":"Google TPU","done":true}]}</script></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUESTIONS: the primer's answers, all open -->
+  <section class="section" id="questions" aria-labelledby="questions-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5 stack-4">
+          <h2 id="questions-h">Questions</h2>
+          <p class="t-lead muted">The terms you need before opening a rack.</p>
+          <p><a class="link" href="primer.html">Read the primer</a></p>
+        </div>
+        <div class="faq span-6 start-7">
+          <div class="faq__item"><h3>How do training and inference differ?</h3><p>Training wants raw compute and very large clusters. Inference wants memory bandwidth and a low cost per token.</p></div>
+          <div class="faq__item"><h3>What do FP4 and FP8 petaflops measure?</h3><p>Peak compute at 4-bit or 8-bit floating point. Lower precision gives bigger numbers, so only compare like with like.</p></div>
+          <div class="faq__item"><h3>How is HBM different from SRAM?</h3><p>HBM is stacked memory beside the chip: large, but limited in bandwidth. SRAM sits on the chip itself: tiny and extremely fast.</p></div>
+          <div class="faq__item"><h3>What are scale-up and scale-out?</h3><p>Scale-up links the chips inside a rack into one system. Scale-out links racks into a cluster over Ethernet or InfiniBand.</p></div>
+          <div class="faq__item"><h3>Which vendor figures can I compare?</h3><p>Fewer than you would hope. Per-chip, per-rack and per-pod figures get mixed freely in vendor material.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--word">
+      <div class="section-head--split">
+        <div><h2 id="close-h">Open your first rack</h2><p class="t-lead">Start with Nvidia's Vera Rubin NVL72, then work across the other seven.</p></div>
+        <a class="btn btn--primary" href="#racks">See all eight racks<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+      </div>
+      <p class="close__word" aria-hidden="true">AI Accelerators 101</p>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <p class="footer__lede">A plain guide to the chips that run AI.</p>
+        </div>
+        <div class="span-2 footer__col"><h3>Guide</h3><ul><li><a href="#camps">Camps</a></li><li><a href="#parts">Parts</a></li><li><a href="#racks">Racks</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Learn</h3><ul><li><a href="#software">Software</a></li><li><a href="#questions">Questions</a></li><li><a href="primer.html">Read the primer</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Compare</h3><ul><li><a href="compare.html">Compare side by side</a></li><li><a href="software.html">See the software matrix</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Sources</h3><ul><li><a href="../index.html">Open the earlier version</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 AI Accelerators 101 &nbsp; Figures as of 12 November 2026. Vendor claims are labelled as such.</span>
+        <div class="socials"></div>
+        <span class="credits">Product names and logos are trademarks of their owners</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script type="module" src="assets/diagrams/mount.js"></script>
+<script src="assets/js/glossary.js" defer></script>
+</body>
+</html>

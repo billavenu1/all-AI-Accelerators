@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nvidia Vera Rubin NVL72: the rack taken apart | AI Accelerators 101</title>
+  <meta name="description" content="Take Nvidia's Vera Rubin NVL72 rack apart piece by piece, from its 72 Rubin GPUs and 36 Vera CPUs down to the blocks inside one Rubin GPU.">
+  <meta property="og:title" content="Nvidia Vera Rubin NVL72: the rack taken apart | AI Accelerators 101">
+  <meta property="og:description" content="Take Nvidia's Vera Rubin NVL72 rack apart piece by piece, from its 72 Rubin GPUs and 36 Vera CPUs down to the blocks inside one Rubin GPU.">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="../assets/inner.css">
+  <link rel="stylesheet" href="../assets/side.css">
+  <style>
+  /* Page-only adjustments for the v2 shell. Lives in this page, so it cannot reach other pages. */
+  /* sticky bars clear the fixed header (and the provider row under 1024px) */
+  .tabs { top: calc(var(--top-h) + var(--side-row, 0px) + 8px); }
+  .detail-col { top: calc(var(--top-h) + var(--side-row, 0px) + 76px); container-type: inline-size; }
+  @media (max-width: 639px) {
+    .tabs { flex-wrap: nowrap; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+    .tabs button { flex: none; padding: 8px 11px; font-size: .86rem; }
+  }
+  /* headings moved down one level for a clean outline; same look as before */
+  .rack-col h3.rack-h { margin: 12px 0 6px; font: 500 .78rem/1.6 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .rack-col h3.rack-h:first-child { margin-top: 0; }
+  .part-detail h4.dh { margin: 14px 0 8px; font: 600 .78rem var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .part-detail .why + h4.dh, .part-detail .stats + .detail-split h4.dh { margin-top: 12px; }
+  /* rack frame in the neutral dark palette instead of navy */
+  .rack-frame { background: linear-gradient(180deg, #202020, #171717); border-color: var(--border); }
+  .rack-frame .part-btn { background: var(--surface-2); border-color: #3a3a3a; border-left-color: var(--part-color); color: var(--text); }
+  .rack-frame .part-btn .s { color: #b8b8b8; }
+  .rack-frame .part.active .part-btn { background: color-mix(in srgb, var(--part-color) 24%, var(--surface-2)); }
+  /* chip schematic: compute blocks in the GPU green rather than violet */
+  .package .part { --part-color: var(--r-tray); }
+  .package .part[data-role="compute"], .part-detail[data-role="compute"] { --part-color: #3fae6a; }
+  .package .part-btn:only-child { padding-right: 7px; }
+  .die-scroll:focus-visible { outline-offset: 4px; border-radius: 14px; }
+  /* chip tab: stack schematic and details when the column beside the provider bar is narrow */
+  .explorer.die-layout { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  @media (max-width: 1365px) {
+    .explorer.die-layout { grid-template-columns: minmax(0, 1fr); }
+    .die-layout .detail-col { position: static; max-height: none; overflow: visible; }
+  }
+  /* detail cards adapt to the width of their own column */
+  @container (max-width: 560px) { .part-detail .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @container (max-width: 400px) { .detail-split { grid-template-columns: minmax(0, 1fr); } }
+  .package { min-width: 540px; }
+  </style>
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="../index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="../index.html">Home</a><a href="../primer.html">Primer</a><a href="../compare.html">Compare</a><a href="../software.html">Software</a></nav>
+      <a class="btn top__cta" href="../index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="../providers/nvidia.html" aria-current="page"><span class="side__logo"><img src="../assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="../providers/amd.html"><span class="side__logo"><img src="../assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="../providers/google-tpu.html"><span class="side__logo"><img src="../assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="../providers/aws.html"><span class="side__logo"><img src="../assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="../providers/microsoft-maia.html"><span class="side__logo"><img src="../assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="../providers/qualcomm.html"><span class="side__logo"><img src="../assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="../providers/cerebras.html"><span class="side__logo"><img src="../assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="../providers/groq.html"><span class="side__logo"><img src="../assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <!-- Block 1: Available series -->
+    <section class="provider-hero">
+      <span class="camp camp-gpu">Merchant GPU</span>
+      <h1>Nvidia: <span class="grad-text">Vera Rubin NVL72</span></h1>
+      <p class="lede">One rack, 72 GPUs, 36 CPUs and seven kinds of chip working as a single machine. Nvidia says it is in full production and shipping.</p>
+      <div class="timeline" role="group" aria-label="Available series">
+        <span class="gen">H100</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">H200</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">GH200</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">GB200 NVL72</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">GB300 NVL72</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen latest">Vera Rubin NVL72</span>
+      </div>
+    </section>
+
+    <!-- Block 2: Latest flagship at a glance -->
+    <section>
+      <div class="stats">
+        <div class="stat"><span class="v">72 + 36</span><span class="l">Rubin GPUs + Vera CPUs</span></div>
+        <div class="stat"><span class="v">20.7 TB</span><span class="l">HBM4 memory in the rack</span></div>
+        <div class="stat"><span class="v">3,600 PF</span><span class="l">NVFP4 inference compute</span></div>
+        <div class="stat"><span class="v">10×</span><span class="l">lower cost per token vs GB200 (Nvidia claim)</span></div>
+      </div>
+    </section>
+
+    <!-- Blocks 3–6 as tabs -->
+    <section>
+      <div class="tabs" role="tablist" aria-label="Vera Rubin NVL72 sections">
+        <button role="tab" id="tabbtn-hw" aria-selected="true" aria-controls="tab-hw">Inside the rack</button>
+        <button role="tab" id="tabbtn-chip" aria-selected="false" aria-controls="tab-chip">The GPU</button>
+        <button role="tab" id="tabbtn-sw" aria-selected="false" aria-controls="tab-sw">Software</button>
+        <button role="tab" id="tabbtn-claims" aria-selected="false" aria-controls="tab-claims">Claims</button>
+      </div>
+
+      <!-- ===================== Block 4: Hardware ecosystem ===================== -->
+      <div class="tab-panel" id="tab-hw" role="tabpanel" aria-labelledby="tabbtn-hw">
+        <div class="section-head">
+          <h2>Take the rack apart</h2>
+          <p>Click a component to learn why it's special. Tap <b>ⓘ</b> to learn what that kind of chip is.</p>
+        </div>
+        <p class="legend">All figures are Nvidia's own claims unless tagged <span class="tag tag-verify">PRESS</span> (reported by trade press, not confirmed by Nvidia).</p>
+
+        <div data-explorer data-noun="components of the rack">
+          <div class="explorer-progress"><span class="count" aria-live="polite"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer">
+            <!-- ---------- Left: the rack ---------- -->
+            <div class="rack-col">
+              <h3 class="rack-h">The rack · simplified front view</h3>
+              <div class="rack-frame">
+                <div class="part" data-part="power" data-role="power">
+                  <button class="part-btn"><span class="n">Power &amp; liquid cooling</span><span class="s">Power shelves · 45 °C warm-water loop</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="concept-cooling" aria-label="What is rack power and liquid cooling?">i</button>
+                </div>
+                <div class="part" data-part="tray" data-role="tray">
+                  <button class="part-btn"><span class="n">Compute trays ×18</span><span class="s">4 GPUs + 2 CPUs in each</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="concept-tray" aria-label="What is a compute tray?">i</button>
+                </div>
+                <div class="part" data-part="nvlink" data-role="net">
+                  <button class="part-btn"><span class="n">NVLink 6 switch trays ×9</span><span class="s">Turn 72 GPUs into one</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="concept-scaleup" aria-label="What is a scale-up switch?">i</button>
+                </div>
+              </div>
+
+              <h3 class="rack-h">Inside one compute tray</h3>
+              <div class="tray-zoom">
+                <div class="part" data-part="rubin" data-role="gpu">
+                  <button class="part-btn"><span class="n">Rubin GPU</span><span class="s">×4 per tray</span></button>
+                  <button class="info-btn" popovertarget="concept-gpu" aria-label="What is a GPU?">i</button>
+                </div>
+                <div class="part" data-part="vera" data-role="cpu">
+                  <button class="part-btn"><span class="n">Vera CPU</span><span class="s">×2 per tray</span></button>
+                  <button class="info-btn" popovertarget="concept-cpu" aria-label="What is a host CPU?">i</button>
+                </div>
+                <div class="part" data-part="cx9" data-role="net">
+                  <button class="part-btn"><span class="n">ConnectX-9</span><span class="s">SuperNIC</span></button>
+                  <button class="info-btn" popovertarget="concept-nic" aria-label="What is a SuperNIC?">i</button>
+                </div>
+                <div class="part" data-part="bf4" data-role="dpu">
+                  <button class="part-btn"><span class="n">BlueField-4</span><span class="s">DPU</span></button>
+                  <button class="info-btn" popovertarget="concept-dpu" aria-label="What is a DPU?">i</button>
+                </div>
+              </div>
+
+              <h3 class="rack-h">Beyond the rack</h3>
+              <div class="beyond">
+                <div class="part" data-part="spectrum" data-role="net">
+                  <button class="part-btn"><span class="n">Spectrum-6 switch</span><span class="s">Connects racks into a cluster</span></button>
+                  <button class="info-btn" popovertarget="concept-scaleout" aria-label="What is a scale-out switch?">i</button>
+                </div>
+                <div class="part" data-part="lpx" data-role="gpu">
+                  <button class="part-btn"><span class="n">Groq 3 LPX rack</span><span class="s">Decode specialist next door</span></button>
+                  <button class="info-btn" popovertarget="concept-lpu" aria-label="What is an LPU?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ---------- Right: detail panels ---------- -->
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">👈</div>
+                <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+              </div>
+
+              <!-- Power & cooling -->
+              <article class="part-detail card" data-detail="power" data-role="power" hidden>
+                <span class="role">Rack infrastructure <button class="info-btn inline" popovertarget="concept-cooling" aria-label="What is liquid cooling?">i</button></span>
+                <h3>Power &amp; liquid cooling</h3>
+                <div class="count">The whole rack · third-generation MGX design</div>
+                <p class="why"><strong>Why it's special:</strong> there are no fans at all. Every chip is cooled by water arriving at 45 °C, warm enough that many data centres can cool it without chillers. Nvidia says that delivers nearly double the thermal performance of Blackwell in the same footprint.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">100%</span><span class="l">liquid cooled, fanless</span></div>
+                  <div class="stat"><span class="v">45 °C</span><span class="l">warm-water supply</span></div>
+                  <div class="stat"><span class="v">~6×</span><span class="l">more local energy buffering than Blackwell Ultra</span></div>
+                  <div class="stat"><span class="v">190–230 kW</span><span class="l">estimated rack power</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does here</h4>
+                <ul>
+                  <li>Smooths sudden power spikes when thousands of GPUs start or stop together, so the grid sees a steady load.</li>
+                  <li>Nvidia claims up to 30% more GPUs can fit in the same power budget.</li>
+                  <li>Nvidia has not published an official rack power figure.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="tray">Compute trays</button><button data-goto="nvlink">NVLink switch trays</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <!-- Compute tray -->
+              <article class="part-detail card" data-detail="tray" data-role="tray" hidden>
+                <span class="role">Building block <button class="info-btn inline" popovertarget="concept-tray" aria-label="What is a compute tray?">i</button></span>
+                <h3>Compute tray</h3>
+                <div class="count">×18 per rack · 2 Vera Rubin superchips each</div>
+                <p class="why"><strong>Why it's special:</strong> it has no cables, no hoses and no fans inside. Nvidia says a tray now takes about 5 minutes to assemble instead of more than 1.5 hours for Blackwell, and can be serviced up to 18× faster. When you run thousands of racks, that is the difference between hours and minutes of downtime.</p>
+                <h4 class="dh">Key numbers (per tray)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">4 + 2</span><span class="l">GPUs + CPUs</span></div>
+                  <div class="stat"><span class="v">200 PF</span><span class="l">NVFP4 compute</span></div>
+                  <div class="stat"><span class="v">14.4 TB/s</span><span class="l">NVLink bandwidth</span></div>
+                  <div class="stat"><span class="v">2 TB</span><span class="l">fast memory</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does here</h4>
+                <ul>
+                  <li>Packages two "superchips", each one Vera CPU wired to two Rubin GPUs.</li>
+                  <li>Carries the networking chips (ConnectX-9 and BlueField-4) that link it to the outside world.</li>
+                  <li>Is hot-swappable: a failed tray can come out while the rest keeps running.</li>
+                </ul></div>
+                <div><h4 class="dh">Look inside</h4>
+                <div class="links-to"><button data-goto="rubin">Rubin GPU</button><button data-goto="vera">Vera CPU</button><button data-goto="cx9">ConnectX-9</button><button data-goto="bf4">BlueField-4</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <!-- NVLink 6 -->
+              <article class="part-detail card" data-detail="nvlink" data-role="net" hidden>
+                <span class="role">Scale-up network <button class="info-btn inline" popovertarget="concept-scaleup" aria-label="What is a scale-up switch?">i</button></span>
+                <h3>NVLink 6 Switch</h3>
+                <div class="count">×9 switch trays · 4 switch chips each</div>
+                <p class="why"><strong>Why it's special:</strong> it lets every one of the 72 GPUs read every other GPU's memory at full speed, so software sees one giant GPU instead of 72 small ones. The switch also does maths itself (SHARP): it adds up results as they pass through, which Nvidia says cuts all-reduce traffic by up to half.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">3.6 TB/s</span><span class="l">per GPU, 2× NVLink 5</span></div>
+                  <div class="stat"><span class="v">28.8 TB/s</span><span class="l">per switch tray</span></div>
+                  <div class="stat"><span class="v">216–260 TB/s</span><span class="l">across the rack (260 at launch, reportedly revised to 216)</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">2×</span><span class="l">all-to-all throughput for mixture-of-experts</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does here</h4>
+                <ul>
+                  <li>Carries tensor-parallel and expert-parallel traffic, the chatter that splits one model across many GPUs.</li>
+                  <li>In-network compute: 14.4 TFLOPS of FP8 per tray, up to 20% faster tensor-parallel execution.</li>
+                  <li>Reroutes around failed links automatically.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="rubin">Every Rubin GPU</button><button data-goto="tray">Compute trays</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <!-- Rubin GPU -->
+              <article class="part-detail card" data-detail="rubin" data-role="gpu" hidden>
+                <span class="role">Accelerator <button class="info-btn inline" popovertarget="concept-gpu" aria-label="What is a GPU?">i</button></span>
+                <h3>Rubin GPU</h3>
+                <div class="count">×72 per rack · 2 compute dies per package</div>
+                <p class="why"><strong>Why it's special:</strong> 336 billion transistors (Blackwell had 208 billion) and HBM4 memory with roughly 2.5–2.8× Blackwell's bandwidth. Its third-generation Transformer Engine compresses numbers on the fly in hardware so 4-bit NVFP4 maths keeps its accuracy, and code tuned for Blackwell still runs.</p>
+                <h4 class="dh">Key numbers (per GPU)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">50 PF</span><span class="l">NVFP4 inference (5× Blackwell)</span></div>
+                  <div class="stat"><span class="v">35 PF</span><span class="l">NVFP4 training (3.5×)</span></div>
+                  <div class="stat"><span class="v">288 GB</span><span class="l">HBM4 memory</span></div>
+                  <div class="stat"><span class="v">19.2–22 TB/s</span><span class="l">memory bandwidth (22 at launch, reportedly revised to 19.2)</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does here</h4>
+                <ul>
+                  <li>Does the matrix maths of training and inference: 224 streaming multiprocessors with fifth-gen Tensor Cores.</li>
+                  <li>Holds model weights and KV cache in its 288 GB of HBM4.</li>
+                  <li>Second-gen RAS engine repairs memory and self-tests in the field without taking the GPU down.</li>
+                  <li>Trade press reports about 2.3 kW per GPU <span class="tag tag-verify">PRESS</span>; the planned Rubin CPX variant was dropped in favour of Groq LPUs.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="vera">Vera CPU (1.8 TB/s NVLink-C2C)</button><button data-goto="nvlink">NVLink 6 Switch</button><button data-goto="cx9">ConnectX-9</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <!-- Vera CPU -->
+              <article class="part-detail card" data-detail="vera" data-role="cpu" hidden>
+                <span class="role">Host CPU <button class="info-btn inline" popovertarget="concept-cpu" aria-label="What is a host CPU?">i</button></span>
+                <h3>Vera CPU</h3>
+                <div class="count">×36 per rack · one per two GPUs</div>
+                <p class="why"><strong>Why it's special:</strong> Nvidia designed its own Arm cores ("Olympus") instead of licensing them, and gave the CPU 2.4× the memory bandwidth of Grace. Its "spatial multithreading" splits each core's resources physically rather than taking turns, so two threads don't slow each other down. Agents spend a lot of time on CPU work like tool calls and code execution, so this matters more than it used to.</p>
+                <h4 class="dh">Key numbers (per CPU)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">88 / 176</span><span class="l">cores / threads</span></div>
+                  <div class="stat"><span class="v">1.5 TB</span><span class="l">LPDDR5X (3× Grace)</span></div>
+                  <div class="stat"><span class="v">1.2 TB/s</span><span class="l">memory bandwidth (2.4× Grace)</span></div>
+                  <div class="stat"><span class="v">1.8 TB/s</span><span class="l">NVLink-C2C to its GPUs (2× Grace)</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does here</h4>
+                <ul>
+                  <li>Runs the operating system, schedules work and feeds data to the two GPUs it is paired with.</li>
+                  <li>Shares memory coherently with the GPUs, so they can spill data into its 1.5 TB.</li>
+                  <li>Supports confidential computing across CPU and GPU (Grace did not).</li>
+                  <li>Armv9.2, 2 MB L2 per core, 164 MB L3, PCIe Gen6 and CXL 3.1.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="rubin">Rubin GPUs</button><button data-goto="bf4">BlueField-4</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <!-- ConnectX-9 -->
+              <article class="part-detail card" data-detail="cx9" data-role="net" hidden>
+                <span class="role">SuperNIC <button class="info-btn inline" popovertarget="concept-nic" aria-label="What is a SuperNIC?">i</button></span>
+                <h3>ConnectX-9 SuperNIC</h3>
+                <div class="count">1.6 Tb/s for every GPU</div>
+                <p class="why"><strong>Why it's special:</strong> each GPU gets its own 1.6 Tb/s path off the rack, so training jobs spanning thousands of GPUs aren't starved for bandwidth. It is programmable: operators can tune congestion control and isolate tenants in the NIC itself, and it speaks both Ethernet and InfiniBand.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">1.6 Tb/s</span><span class="l">per GPU (2 × 800 Gb/s)</span></div>
+                  <div class="stat"><span class="v">200G</span><span class="l">PAM4 SerDes per lane</span></div>
+                  <div class="stat"><span class="v">PCIe Gen6</span><span class="l">host interface</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does here</h4>
+                <ul>
+                  <li>Moves gradients and activations between racks during training.</li>
+                  <li>Encrypts traffic in hardware (IPsec/PSP) and supports secure boot and attestation.</li>
+                  <li>Is the endpoint for Spectrum-X Ethernet congestion control, the "other half" of the scale-out network.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="rubin">Rubin GPUs</button><button data-goto="spectrum">Spectrum-6 switches</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <!-- BlueField-4 -->
+              <article class="part-detail card" data-detail="bf4" data-role="dpu" hidden>
+                <span class="role">DPU <button class="info-btn inline" popovertarget="concept-dpu" aria-label="What is a DPU?">i</button></span>
+                <h3>BlueField-4 DPU</h3>
+                <div class="count">In every compute tray · 800 Gb/s</div>
+                <p class="why"><strong>Why it's special:</strong> it is effectively a small server on a card. BlueField-4 combines a 64-core Arm CPU with a ConnectX-9 network chip, giving it 6× the compute of BlueField-3. Its new job is AI-specific: storing and sharing the KV cache (the model's working memory of a conversation) so long agent sessions don't have to recompute it.</p>
+                <h4 class="dh">Key numbers (vs BlueField-3)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">800 Gb/s</span><span class="l">networking (2×)</span></div>
+                  <div class="stat"><span class="v">6×</span><span class="l">compute</span></div>
+                  <div class="stat"><span class="v">128 GB</span><span class="l">memory (4×), 250 GB/s</span></div>
+                  <div class="stat"><span class="v">20M</span><span class="l">NVMe IOPS (2×)</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does here</h4>
+                <ul>
+                  <li><b>Storage:</b> the BlueField-4 STX design offloads KV cache to fast shared storage; Nvidia claims up to 5× tokens per second.</li>
+                  <li><b>Security and multi-tenancy:</b> the ASTRA trust architecture isolates customers sharing one rack.</li>
+                  <li><b>Infrastructure offload:</b> networking, storage and firewall work stays off the Vera CPUs.</li>
+                  <li>Nvidia's January materials describe the CPU as Grace; its March storage launch says Vera.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="vera">Vera CPU</button><button data-goto="spectrum">Storage network via Spectrum-X</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <!-- Spectrum-6 -->
+              <article class="part-detail card" data-detail="spectrum" data-role="net" hidden>
+                <span class="role">Scale-out network <button class="info-btn inline" popovertarget="concept-scaleout" aria-label="What is a scale-out switch?">i</button></span>
+                <h3>Spectrum-6 Ethernet switch</h3>
+                <div class="count">Outside the rack · with co-packaged optics</div>
+                <p class="why"><strong>Why it's special:</strong> the lasers that turn electrical signals into light sit inside the switch package (co-packaged optics) instead of in pluggable modules. Signals travel millimetres instead of centimetres before becoming light, which Nvidia says cuts optical loss from about 22 dB to 4 dB and gives about 5× better power efficiency and 10× better reliability.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">102.4 Tb/s</span><span class="l">per switch chip</span></div>
+                  <div class="stat"><span class="v">409.6 Tb/s</span><span class="l">SN6800 switch system</span></div>
+                  <div class="stat"><span class="v">~5×</span><span class="l">power efficiency</span></div>
+                  <div class="stat"><span class="v">95%</span><span class="l">effective bandwidth at scale</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does here</h4>
+                <ul>
+                  <li>Links NVL72 racks into clusters of tens of thousands of GPUs.</li>
+                  <li>Sits in the Spectrum-6 SPX networking rack of the Vera Rubin POD.</li>
+                  <li>Quantum-X800 InfiniBand is the alternative for customers who prefer InfiniBand.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="cx9">ConnectX-9 SuperNICs</button><button data-goto="bf4">BlueField-4 storage</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <!-- Groq 3 LPX -->
+              <article class="part-detail card" data-detail="lpx" data-role="gpu" hidden>
+                <span class="role">Decode accelerator <button class="info-btn inline" popovertarget="concept-lpu" aria-label="What is an LPU?">i</button></span>
+                <h3>Groq 3 LPX rack</h3>
+                <div class="count">256 Groq 3 LPUs · a separate rack in the POD</div>
+                <p class="why"><strong>Why it's special:</strong> GPUs are great at reading a long prompt but slow at producing tokens one by one, because each token waits on memory. Groq's LPUs keep weights in on-chip SRAM, so the GPUs and LPUs split each token between them. Nvidia claims up to 35× more throughput per megawatt for trillion-parameter models when the two are paired.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">256</span><span class="l">LPUs per rack (tray layout reported as 16×16 or 32×8)</span></div>
+                  <div class="stat"><span class="v">128 GB</span><span class="l">SRAM per rack</span></div>
+                  <div class="stat"><span class="v">35×</span><span class="l">throughput per MW (Nvidia claim)</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does here</h4>
+                <ul>
+                  <li>Speeds up the decode phase of inference, alongside the NVL72's GPUs.</li>
+                  <li>Replaced the planned Rubin CPX accelerator on Nvidia's roadmap.</li>
+                  <li>Comes from Nvidia's licence of Groq's technology; Groq itself remains independent.</li>
+                </ul></div>
+                <div><h4 class="dh">Learn more</h4>
+                <div class="links-to"><button data-goto="rubin">Rubin GPU</button><a class="btn btn-ghost" href="groq.html">How the LPU works <span aria-hidden="true">→</span></a></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards (ⓘ) ===================== -->
+          <div class="concept" id="concept-cooling" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Rack power &amp; liquid cooling</h4></div>
+            <button class="close" popovertarget="concept-cooling" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A modern AI rack draws as much power as a hundred homes. Almost all of it turns into heat, far more than fans can blow away.</p>
+              <p><b>Direct liquid cooling</b> pumps water through metal plates pressed onto each chip. Power shelves convert grid power to the voltages chips need.</p>
+              <div class="analogy"><b>Analogy:</b> a car engine. Air cooling works for a lawnmower; a racing engine needs a radiator.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-tray" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a compute tray?</h4></div>
+            <button class="close" popovertarget="concept-tray" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A tray is a flat drawer that slides into the rack. It holds a few accelerators, their CPUs and network chips on one board.</p>
+              <p>Racks are built from identical trays so that a broken one can be swapped like a battery, and many trays can be wired together to act as one computer.</p>
+              <div class="analogy"><b>Analogy:</b> books on a shelf. The rack is the shelf, each tray is a book, and you can pull one out without moving the rest.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-scaleup" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a scale-up switch?</h4></div>
+            <button class="close" popovertarget="concept-scaleup" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Big models don't fit on one chip, so they're split across many. Those chips must swap partial results constantly, often several times per token.</p>
+              <p>A <b>scale-up</b> network links chips inside one rack with very high bandwidth and very low delay, so they behave like one big chip. Examples: Nvidia NVLink, AMD/industry UALink, Google ICI.</p>
+              <div class="analogy"><b>Analogy:</b> people working in one open-plan room who can just talk, versus emailing another office (scale-out).</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-gpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a GPU?</h4></div>
+            <button class="close" popovertarget="concept-gpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A GPU runs thousands of simple calculations in parallel. AI is mostly multiplying huge grids of numbers (matrices), which is exactly that kind of work.</p>
+              <p>Next to it sits <b>HBM</b> (high-bandwidth memory): stacks of memory chips that hold the model. How fast the GPU can read HBM often limits speed more than the maths does.</p>
+              <div class="analogy"><b>Analogy:</b> a CPU is a few expert chefs; a GPU is a thousand line cooks each chopping one vegetable at the same time.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-cpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a host CPU?</h4></div>
+            <button class="close" popovertarget="concept-cpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Accelerators can't run an operating system. A <b>host CPU</b> boots the machine, loads data, launches work onto the accelerators and handles everything that isn't matrix maths.</p>
+              <p>When a CPU and GPUs share one package with a fast coherent link, Nvidia calls it a <b>superchip</b>.</p>
+              <div class="analogy"><b>Analogy:</b> the head chef who reads the orders and hands tasks to the line cooks.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-nic" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a (Super)NIC?</h4></div>
+            <button class="close" popovertarget="concept-nic" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A <b>network interface card</b> connects a computer to the network. A <b>SuperNIC</b> is a NIC built for AI: huge bandwidth per GPU, hardware congestion control, and the ability to move data straight into GPU memory (RDMA) without bothering the CPU.</p>
+              <div class="analogy"><b>Analogy:</b> a dedicated loading dock for each warehouse aisle, instead of one front door for the whole building.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-dpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a DPU?</h4></div>
+            <button class="close" popovertarget="concept-dpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A <b>data processing unit</b> is a network card with its own CPU cores and memory. It takes over the "plumbing" of a data centre: networking, storage access, encryption, firewalls and keeping customers isolated from each other.</p>
+              <p>That frees the main CPUs and GPUs to do only AI work, and gives the cloud operator a secure control point the customer can't tamper with.</p>
+              <div class="analogy"><b>Analogy:</b> a building's security desk and mailroom. Residents (the GPUs) never deal with deliveries or visitors themselves.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-scaleout" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a scale-out switch?</h4></div>
+            <button class="close" popovertarget="concept-scaleout" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Scale-out</b> networks connect racks to each other so thousands of racks can train one model. They use Ethernet or InfiniBand, usually over fibre optics.</p>
+              <p><b>Co-packaged optics</b> puts the light-making parts inside the switch chip's package, cutting power and failures compared with plug-in optical modules.</p>
+              <div class="analogy"><b>Analogy:</b> the motorway between cities, while scale-up is the streets inside one city.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-lpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is an LPU?</h4></div>
+            <button class="close" popovertarget="concept-lpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Groq's <b>Language Processing Unit</b> keeps the model in on-chip SRAM instead of external HBM, and its compiler plans every step in advance. There are no caches or surprises, so each token comes out at a fast, predictable speed.</p>
+              <p>The trade-off: SRAM is small, so a big model is spread over hundreds of chips.</p>
+              <div class="analogy"><b>Analogy:</b> a train timetable, where everything leaves exactly on schedule, versus taxis that react to traffic.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 3: The accelerator chip ===================== -->
+      <div class="tab-panel" id="tab-chip" role="tabpanel" aria-labelledby="tabbtn-chip" hidden>
+        <div class="section-head">
+          <h2>Inside the Rubin GPU</h2>
+          <p>Click any block on the chip. Tap <b>ⓘ</b> to learn what that block is.</p>
+        </div>
+        <p class="legend">Simplified schematic, not a die photo or to scale. Figures are Nvidia's own unless tagged <span class="tag tag-verify">PRESS</span>.</p>
+
+        <div data-explorer data-noun="blocks on the chip">
+          <div class="explorer-progress"><span class="count" aria-live="polite"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer die-layout">
+            <!-- ---------- Left: the package ---------- -->
+            <div>
+              <div class="die-scroll" role="region" tabindex="0" aria-label="Rubin GPU package schematic">
+                <div class="package">
+                  <!-- Compute die A -->
+                  <div class="die a-dieA">
+                    <div class="die-label">Compute die A</div>
+                    <div class="part" data-part="gpc" data-role="compute">
+                      <button class="part-btn"><span class="n">GPC</span><span class="s">SMs</span></button>
+                      <button class="info-btn" popovertarget="concept-sm" aria-label="What is an SM?">i</button>
+                    </div>
+                    <div class="part" data-part="l2" data-role="cache">
+                      <button class="part-btn"><span class="n">L2</span></button>
+                      <button class="info-btn" popovertarget="concept-l2" aria-label="What is L2 cache?">i</button>
+                    </div>
+                    <div class="part" data-part="gpc" data-role="compute"><button class="part-btn"><span class="n">GPC</span><span class="s">SMs</span></button></div>
+                    <div class="part gige" data-part="sched" data-role="sched">
+                      <button class="part-btn"><span class="n">Scheduler · MIG</span></button>
+                      <button class="info-btn" popovertarget="concept-sched" aria-label="What is the GPU scheduler?">i</button>
+                    </div>
+                    <div class="part" data-part="gpc" data-role="compute"><button class="part-btn"><span class="n">GPC</span><span class="s">SMs</span></button></div>
+                    <div class="part" data-part="l2" data-role="cache"><button class="part-btn"><span class="n">L2</span></button></div>
+                    <div class="part" data-part="gpc" data-role="compute"><button class="part-btn"><span class="n">GPC</span><span class="s">SMs</span></button></div>
+                  </div>
+
+                  <!-- Compute die B -->
+                  <div class="die a-dieB">
+                    <div class="die-label">Compute die B</div>
+                    <div class="part" data-part="gpc" data-role="compute"><button class="part-btn"><span class="n">GPC</span><span class="s">SMs</span></button></div>
+                    <div class="part" data-part="l2" data-role="cache"><button class="part-btn"><span class="n">L2</span></button></div>
+                    <div class="part" data-part="gpc" data-role="compute"><button class="part-btn"><span class="n">GPC</span><span class="s">SMs</span></button></div>
+                    <div class="part gige" data-part="sched" data-role="sched"><button class="part-btn"><span class="n">Scheduler · MIG</span></button></div>
+                    <div class="part" data-part="gpc" data-role="compute"><button class="part-btn"><span class="n">GPC</span><span class="s">SMs</span></button></div>
+                    <div class="part" data-part="l2" data-role="cache"><button class="part-btn"><span class="n">L2</span></button></div>
+                    <div class="part" data-part="gpc" data-role="compute"><button class="part-btn"><span class="n">GPC</span><span class="s">SMs</span></button></div>
+                  </div>
+
+                  <!-- HBM4 stacks -->
+                  <div class="hbm-row a-hbmA">
+                    <div class="part" data-part="hbm" data-role="mem">
+                      <button class="part-btn"><span class="n">HBM4</span></button>
+                      <button class="info-btn" popovertarget="concept-hbm" aria-label="What is HBM?">i</button>
+                    </div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                  </div>
+                  <div class="hbm-row a-hbmB">
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                  </div>
+                  <div class="hbm-row a-hbmC">
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                  </div>
+                  <div class="hbm-row a-hbmD">
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                    <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM4</span></button></div>
+                  </div>
+
+                  <!-- Die-to-die link -->
+                  <div class="part a-hbi" data-part="d2d" data-role="io">
+                    <button class="part-btn"><span class="n">D2D</span></button>
+                    <button class="info-btn" popovertarget="concept-d2d" aria-label="What is a die-to-die link?">i</button>
+                  </div>
+
+                  <!-- I/O and security edges -->
+                  <div class="part a-nvl" data-part="nvlink6" data-role="io">
+                    <button class="part-btn"><span class="n">NVLink 6</span></button>
+                    <button class="info-btn" popovertarget="concept-scaleup" aria-label="What is NVLink?">i</button>
+                  </div>
+                  <div class="part a-c2c" data-part="c2c" data-role="io">
+                    <button class="part-btn"><span class="n">NVLink C2C</span></button>
+                    <button class="info-btn" popovertarget="concept-c2c" aria-label="What is NVLink-C2C?">i</button>
+                  </div>
+                  <div class="part a-pcie" data-part="pcie" data-role="io">
+                    <button class="part-btn"><span class="n">PCIe Gen6</span></button>
+                    <button class="info-btn" popovertarget="concept-pcie" aria-label="What is PCIe?">i</button>
+                  </div>
+                  <div class="part a-sec" data-part="cc" data-role="sec">
+                    <button class="part-btn"><span class="n">TEE</span><span class="s">confidential</span></button>
+                    <button class="info-btn" popovertarget="concept-cc" aria-label="What is confidential computing?">i</button>
+                  </div>
+                  <div class="part a-ras" data-part="ras" data-role="sec">
+                    <button class="part-btn"><span class="n">RAS engine</span></button>
+                    <button class="info-btn" popovertarget="concept-ras" aria-label="What is a RAS engine?">i</button>
+                  </div>
+                </div>
+              </div>
+              <p class="die-caption">Two compute dies in one package, surrounded by HBM4 stacks, with I/O on the edges.</p>
+            </div>
+
+            <!-- ---------- Right: detail panels ---------- -->
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">🔬</div>
+                <p><strong>Zoom into the silicon.</strong><br>Start with the green GPC blocks, where the maths happens.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="gpc" data-role="compute" hidden>
+                <span class="role">Compute <button class="info-btn inline" popovertarget="concept-sm" aria-label="What is an SM?">i</button></span>
+                <h3>GPCs, SMs &amp; Tensor Cores</h3>
+                <div class="count">224 SMs across the two dies (Blackwell Ultra: 160)</div>
+                <p class="why"><strong>Why it's special:</strong> Rubin's third-generation Transformer Engine compresses numbers adaptively in hardware, so 4-bit NVFP4 maths keeps its accuracy, and code tuned for Blackwell still runs. Nvidia also doubled the throughput of the special-function units that compute softmax, the step at the heart of attention.</p>
+                <h4 class="dh">Key numbers (whole GPU)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">224</span><span class="l">streaming multiprocessors</span></div>
+                  <div class="stat"><span class="v">50 PF</span><span class="l">NVFP4 inference (5× Blackwell)</span></div>
+                  <div class="stat"><span class="v">35 PF</span><span class="l">NVFP4 training (3.5×)</span></div>
+                  <div class="stat"><span class="v">17.5 PF</span><span class="l">FP8</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does</h4>
+                <ul>
+                  <li>A GPC is a cluster of SMs; each SM runs thousands of threads at once.</li>
+                  <li>Fifth-gen Tensor Cores inside each SM do the matrix multiply-adds that make up almost all AI work.</li>
+                  <li>336 billion transistors in total, against Blackwell's 208 billion.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="l2">L2 cache</button><button data-goto="sched">Scheduler</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="l2" data-role="cache" hidden>
+                <span class="role">On-chip memory <button class="info-btn inline" popovertarget="concept-l2" aria-label="What is L2 cache?">i</button></span>
+                <h3>L2 cache</h3>
+                <div class="count">Shared by every SM on its die</div>
+                <p class="why"><strong>Why it matters:</strong> every byte coming from HBM passes through L2. When weights or KV-cache blocks are reused, keeping them in L2 avoids another slow trip to HBM, so a bigger, smarter cache directly lifts real-world throughput.</p>
+                <div class="detail-split"><div><h4 class="dh">What it does</h4>
+                <ul>
+                  <li>Buffers data between the SMs and the HBM controllers.</li>
+                  <li>Keeps the two dies' views of memory consistent, so software sees one GPU.</li>
+                  <li>Nvidia has not published Rubin's L2 size in the materials we checked.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="gpc">GPCs</button><button data-goto="hbm">HBM4</button><button data-goto="d2d">Die-to-die link</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="sched" data-role="sched" hidden>
+                <span class="role">Control <button class="info-btn inline" popovertarget="concept-sched" aria-label="What is the GPU scheduler?">i</button></span>
+                <h3>Scheduler &amp; MIG</h3>
+                <div class="count">One per die (Nvidia calls it the GigaThread engine)</div>
+                <p class="why"><strong>Why it matters:</strong> a GPU is only fast if all 224 SMs stay busy. The scheduler hands out blocks of work as SMs free up. Multi-Instance GPU (MIG) can also slice one GPU into isolated pieces, so several smaller models or tenants share it safely.</p>
+                <div class="detail-split"><div><h4 class="dh">What it does</h4>
+                <ul>
+                  <li>Distributes thread blocks from each kernel across the SMs.</li>
+                  <li>MIG has split Nvidia data-centre GPUs into up to seven isolated instances since the A100.</li>
+                  <li>The block layout here follows Nvidia's Blackwell diagrams; Rubin's exact floorplan isn't public.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="gpc">GPCs</button><button data-goto="cc">Confidential computing</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="hbm" data-role="mem" hidden>
+                <span class="role">Memory <button class="info-btn inline" popovertarget="concept-hbm" aria-label="What is HBM?">i</button></span>
+                <h3>HBM4 memory</h3>
+                <div class="count">288 GB in stacks around the dies</div>
+                <p class="why"><strong>Why it's special:</strong> Rubin is among the first GPUs on HBM4, which doubles each stack's interface to 2,048 bits (HBM3E has 1,024). Wider pipes mean far more bandwidth, and bandwidth, not maths, is what limits how fast a model generates tokens.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">288 GB</span><span class="l">capacity, same as Blackwell Ultra</span></div>
+                  <div class="stat"><span class="v">22 TB/s</span><span class="l">bandwidth at launch</span></div>
+                  <div class="stat"><span class="v">19.2 TB/s</span><span class="l">reported revised figure</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">2.4–2.8×</span><span class="l">Blackwell's 8 TB/s</span></div>
+                </div>
+                <div class="detail-split"><div><h4 class="dh">What it does</h4>
+                <ul>
+                  <li>Holds the model weights and the KV cache of every conversation in flight.</li>
+                  <li>Each stack is DRAM dies piled vertically and wired through the silicon, sitting millimetres from the GPU.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="l2">L2 cache</button><button data-goto="c2c">More memory via the CPU</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="d2d" data-role="io" hidden>
+                <span class="role">Die-to-die <button class="info-btn inline" popovertarget="concept-d2d" aria-label="What is a die-to-die link?">i</button></span>
+                <h3>Die-to-die link</h3>
+                <div class="count">Joins the two compute dies</div>
+                <p class="why"><strong>Why it's special:</strong> a single chip can't be bigger than the lithography machine's field (the "reticle limit"). Rubin uses two maximum-size dies and stitches them together so tightly that software sees one GPU, not two.</p>
+                <div class="detail-split"><div><h4 class="dh">What it does</h4>
+                <ul>
+                  <li>Lets SMs on one die read memory attached to the other die.</li>
+                  <li>On Blackwell, Nvidia calls this NV-HBI and rates it at 10 TB/s. Rubin's figure isn't in the sources we checked.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="l2">L2 cache on both dies</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="nvlink6" data-role="io" hidden>
+                <span class="role">Scale-up I/O <button class="info-btn inline" popovertarget="concept-scaleup" aria-label="What is NVLink?">i</button></span>
+                <h3>NVLink 6</h3>
+                <div class="count">To the NVLink 6 switch trays</div>
+                <p class="why"><strong>Why it's special:</strong> it doubles per-GPU bandwidth over NVLink 5. That is what lets 72 GPUs share one model as if it were on a single chip; see the switch in the "Inside the rack" tab.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">3.6 TB/s</span><span class="l">per GPU</span></div>
+                  <div class="stat"><span class="v">2×</span><span class="l">NVLink 5 (1.8 TB/s)</span></div>
+                  <div class="stat"><span class="v">3.0 TB/s</span><span class="l">one report of a revision</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="c2c">NVLink-C2C</button><button data-goto="pcie">PCIe Gen6</button></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="c2c" data-role="io" hidden>
+                <span class="role">CPU link <button class="info-btn inline" popovertarget="concept-c2c" aria-label="What is NVLink-C2C?">i</button></span>
+                <h3>NVLink-C2C</h3>
+                <div class="count">To the Vera CPU</div>
+                <p class="why"><strong>Why it's special:</strong> the link is coherent, so the GPU can use the CPU's 1.5 TB of LPDDR5X as overflow memory without copying. Long-context inference can park KV cache there instead of throwing it away.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">1.8 TB/s</span><span class="l">CPU ↔ GPU</span></div>
+                  <div class="stat"><span class="v">2×</span><span class="l">Grace's 900 GB/s</span></div>
+                  <div class="stat"><span class="v">1.5 TB</span><span class="l">CPU memory within reach</span></div>
+                </div>
+                <h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="hbm">HBM4</button><button data-goto="nvlink6">NVLink 6</button></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="pcie" data-role="io" hidden>
+                <span class="role">General I/O <button class="info-btn inline" popovertarget="concept-pcie" aria-label="What is PCIe?">i</button></span>
+                <h3>PCIe Gen6</h3>
+                <div class="count">x16 host interface</div>
+                <p class="why"><strong>Why it matters:</strong> NVLink handles GPU-to-GPU and GPU-to-CPU traffic, but PCIe is still the standard door for everything else, like network cards and storage.</p>
+                <h4 class="dh">Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">256 GB/s</span><span class="l">PCIe Gen6 x16</span></div>
+                  <div class="stat"><span class="v">Gen6</span><span class="l">same generation as Blackwell Ultra</span></div>
+                </div>
+                <h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="nvlink6">NVLink 6</button></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="cc" data-role="sec" hidden>
+                <span class="role">Security <button class="info-btn inline" popovertarget="concept-cc" aria-label="What is confidential computing?">i</button></span>
+                <h3>Confidential computing</h3>
+                <div class="count">Part of a rack-scale trusted execution environment</div>
+                <p class="why"><strong>Why it's special:</strong> Nvidia's third-generation trusted execution environment now spans the whole rack (CPU, GPU and the NVLink between them). A model owner's weights and users' prompts stay encrypted even from the cloud operator running the hardware.</p>
+                <div class="detail-split"><div><h4 class="dh">What it does</h4>
+                <ul>
+                  <li>Encrypts data while it is being processed, not just at rest or in transit.</li>
+                  <li>Proves to a remote user, by attestation, that the hardware and software haven't been tampered with.</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="c2c">NVLink-C2C</button><button data-goto="ras">RAS engine</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="ras" data-role="sec" hidden>
+                <span class="role">Reliability <button class="info-btn inline" popovertarget="concept-ras" aria-label="What is a RAS engine?">i</button></span>
+                <h3>RAS engine</h3>
+                <div class="count">Second generation</div>
+                <p class="why"><strong>Why it's special:</strong> in a cluster of 100,000 GPUs, something fails every day. Rubin's RAS engine can repair faulty on-chip SRAM in the field and run self-tests without taking the GPU offline, so a single fault doesn't stall a training run.</p>
+                <div class="detail-split"><div><h4 class="dh">What it does</h4>
+                <ul>
+                  <li>Monitors the chip's health and predicts failures before they happen.</li>
+                  <li>Zero-downtime self-test and in-field SRAM repair (Nvidia claims).</li>
+                </ul></div>
+                <div><h4 class="dh">Connects to</h4>
+                <div class="links-to"><button data-goto="gpc">GPCs</button><button data-goto="cc">Confidential computing</button></div></div></div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards for the chip (ⓘ) ===================== -->
+          <div class="concept" id="concept-sm" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What are SMs and Tensor Cores?</h4></div>
+            <button class="close" popovertarget="concept-sm" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A <b>streaming multiprocessor (SM)</b> is one of the GPU's many small processors. Each runs thousands of threads in lock-step groups.</p>
+              <p><b>Tensor Cores</b> are special units inside each SM that multiply small blocks of a matrix in a single step. A <b>GPC</b> is just a cluster of SMs.</p>
+              <div class="analogy"><b>Analogy:</b> the GPU is a factory, a GPC is a hall, an SM is a workstation, and a Tensor Core is the power tool that does one job very fast.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-l2" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is L2 cache?</h4></div>
+            <button class="close" popovertarget="concept-l2" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A <b>cache</b> is a small, very fast memory on the chip that keeps recently used data close to the processors. <b>L2</b> is the larger, shared level that every SM can reach.</p>
+              <div class="analogy"><b>Analogy:</b> HBM is the warehouse; L2 is the shelf right next to the workbench.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-sched" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What does the GPU scheduler do?</h4></div>
+            <button class="close" popovertarget="concept-sched" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A program sent to a GPU (a <b>kernel</b>) is split into many blocks of work. The scheduler hands them to whichever SM is free, millions of times a second.</p>
+              <p><b>MIG (Multi-Instance GPU)</b> carves one GPU into several smaller, fully isolated GPUs.</p>
+              <div class="analogy"><b>Analogy:</b> an air-traffic controller, plus the ability to split one big runway into several private ones.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-hbm" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is HBM?</h4></div>
+            <button class="close" popovertarget="concept-hbm" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>High-bandwidth memory</b> stacks DRAM chips on top of each other and places them right beside the processor on the same package, connected by thousands of tiny wires.</p>
+              <p>It is much faster than normal memory, but expensive and limited in size, so it is often the real bottleneck for AI.</p>
+              <div class="analogy"><b>Analogy:</b> a multi-storey car park next to the stadium, with a hundred exits instead of one.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-d2d" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a die-to-die link?</h4></div>
+            <button class="close" popovertarget="concept-d2d" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Chips are printed in patches no bigger than about 26 × 33 mm, the <b>reticle limit</b>. To go bigger, designers build several dies (<b>chiplets</b>) and join them with a very short, very wide link inside the package.</p>
+              <div class="analogy"><b>Analogy:</b> two rooms knocked through into one open space. They're still two rooms, but you walk between them freely.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-c2c" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a coherent CPU–GPU link?</h4></div>
+            <button class="close" popovertarget="concept-c2c" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Coherent</b> means the CPU and GPU always agree on what is in memory, so either one can read the other's memory directly, with no copying.</p>
+              <p>Nvidia's chip-to-chip version is called <b>NVLink-C2C</b>, and it is far faster than PCIe.</p>
+              <div class="analogy"><b>Analogy:</b> two colleagues editing one shared document instead of emailing copies back and forth.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-pcie" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is PCIe?</h4></div>
+            <button class="close" popovertarget="concept-pcie" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>PCI Express</b> is the standard connection inside almost every computer, linking processors to graphics cards, SSDs and network cards. Each generation roughly doubles its speed.</p>
+              <div class="analogy"><b>Analogy:</b> the public road network. Not the fastest route, but it reaches everything.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-cc" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is confidential computing?</h4></div>
+            <button class="close" popovertarget="concept-cc" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Normally data is encrypted on disk and on the network but readable while it is being processed. <b>Confidential computing</b> keeps it encrypted inside a hardware-protected <b>trusted execution environment</b>, even from the machine's owner.</p>
+              <div class="analogy"><b>Analogy:</b> a locked glovebox in a lab. You can work on the sample, but nobody else in the room can touch it.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="concept-ras" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What does RAS mean?</h4></div>
+            <button class="close" popovertarget="concept-ras" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Reliability, availability and serviceability</b>: the features that detect, survive and fix hardware faults. At data-centre scale, rare faults become everyday events.</p>
+              <div class="analogy"><b>Analogy:</b> a car's warning lights plus a mechanic who can fix things while you keep driving.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 5: Software ecosystem ===================== -->
+      <div class="tab-panel" id="tab-sw" role="tabpanel" aria-labelledby="tabbtn-sw" hidden>
+        <h2>Nvidia's software stack</h2>
+        <div class="stack">
+          <div class="layer"><span class="name">Access</span><span><b>NIM</b> packaged model microservices · <b>AI Enterprise</b> supported bundle</span></div>
+          <div class="layer"><span class="name">Serving</span><span><b>Dynamo 1.0</b> open-source "inference operating system" (March 2026) · <b>TensorRT-LLM</b></span></div>
+          <div class="layer"><span class="name">Frameworks</span><span>Native PyTorch and JAX support</span></div>
+          <div class="layer"><span class="name">Libraries</span><span><b>CUDA-X</b> · cuDNN · NCCL</span></div>
+          <div class="layer"><span class="name">Kernel</span><span><b>CUDA</b>, nearly two decades of tooling and developer habit</span></div>
+        </div>
+        <p>The deepest stack in the industry, and Nvidia's strongest moat. <a href="../software.html">Compare with other vendors <span aria-hidden="true">→</span></a></p>
+      </div>
+
+      <!-- ===================== Block 6: Claims ===================== -->
+      <div class="tab-panel" id="tab-claims" role="tabpanel" aria-labelledby="tabbtn-claims" hidden>
+        <h2>Headline claims vs Blackwell</h2>
+        <div class="claims">
+          <div class="claim card"><span class="value">10×</span><span>lower cost per million tokens vs GB200 NVL72 (Kimi-K2-Thinking, 32K in / 8K out)</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">¼ the GPUs</span><span>to train a 10T-parameter MoE on 100T tokens in a month (16,000 vs 64,000)</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">3,600 PF</span><span>NVFP4 inference per rack</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">2,520 PF</span><span>NVFP4 training per rack</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">20.7 TB</span><span>HBM4 per rack</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">~1,400 TB/s</span><span>rack memory bandwidth (launched as 1,580 TB/s; reportedly revised)</span><span class="tag tag-verify">PRESS</span></div>
+        </div>
+      </div>
+    </section>
+
+    <nav class="pager">
+      <a href="../index.html"><span aria-hidden="true">←</span> All providers</a>
+      <a href="amd.html">AMD <span aria-hidden="true">→</span></a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">Sources:
+      <a href="https://developer.nvidia.com/blog/inside-the-nvidia-rubin-platform-six-new-chips-one-ai-supercomputer/">Nvidia technical blog</a> ·
+      <a href="https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72">Vera Rubin NVL72 page</a> ·
+      <a href="https://nvidianews.nvidia.com/news/nvidia-launches-bluefield-4-stx-storage-architecture-with-broad-industry-adoption">BlueField-4 STX</a> ·
+      <a href="https://www.theregister.com/2026/03/19/nvidia_lpx_deep_dive/">The Register: LPX</a> ·
+      <a href="https://www.tweaktown.com/news/114304/nvidia-cuts-vera-rubins-memory-bandwidth-by-up-to-26-percent-and-amds-helios-now-leads-in-memory-bandwidth/index.html">TweakTown: bandwidth revision</a>
+      <p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/rack-explorer.js"></script>
+<script src="../assets/js/glossary.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cerebras CS-4: three WSE-3 Turbo wafers in one rack | AI Accelerators 101</title>
+  <meta name="description" content="How Cerebras CS-4 works: three WSE-3 Turbo wafers, each kept whole as one processor with its memory on the same silicon, built for fast token generation.">
+  <meta property="og:title" content="Cerebras CS-4: three WSE-3 Turbo wafers in one rack">
+  <meta property="og:description" content="How Cerebras CS-4 works: three WSE-3 Turbo wafers, each kept whole as one processor with its memory on the same silicon, built for fast token generation.">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="../assets/inner.css">
+  <link rel="stylesheet" href="../assets/side.css">
+  <style>
+    /* cerebras.html only */
+    /* Headings re-levelled for a clean outline (rack column h4 -> h3, detail h5 -> h4); same look as before. */
+    .rack-col h3 { margin: 12px 0 6px; font: 500 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .rack-col h3:first-child { margin-top: 0; }
+    .part-detail h4 { font: 600 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 8px; }
+    .part-detail .why + h4, .part-detail .stats + .detail-split h4 { margin-top: 12px; }
+    /* No violet: compute blocks use the accelerator green. */
+    .package .part, .package .part[data-role="compute"], .part-detail[data-role="compute"] { --part-color: var(--r-gpu); }
+    /* Tabs stick below the fixed header (and the provider row under 1024px). */
+    .tabs { top: calc(var(--top-h) + var(--side-row, 0px) + 8px); }
+    /* Detail stats wrap to the column width instead of a fixed four. */
+    .part-detail .stats { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+    .explorer > * { min-width: 0; }
+    #tab-sw .stats { margin-top: 20px; }
+    #tab-sw .note { margin-top: 16px; }
+    #tab-sw .legend { margin-top: 12px; }
+    /* Chip diagram over its details until the column is wide enough for both. */
+    @media (max-width: 1279px) {
+      .explorer.die-layout { grid-template-columns: minmax(0, 1fr); }
+      .die-layout .detail-col { position: static; max-height: none; overflow: visible; min-height: 0; }
+    }
+    @media (max-width: 860px) { .explorer { grid-template-columns: minmax(0, 1fr); } }
+    /* Wafer schematic */
+    .package.cb-wafer { min-width: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: none; border-color: var(--camp-spec); background: #15110d; border-radius: 10px; }
+    .cb-dies { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .cb-die { display: grid; gap: 4px; padding: 5px; border: 1px dashed #4a3a28; border-radius: 6px; background: #1a150f; min-width: 0; }
+    .cb-die .die-label { color: var(--camp-spec); }
+    .cb-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+    .cb-die .part:not(:has(.info-btn)) .part-btn { padding-right: 6px; }
+    @media (max-width: 640px) {
+      .package.cb-wafer { padding: 6px; }
+      .cb-dies { gap: 6px; }
+      .cb-die { padding: 3px; }
+      .cb-pair { grid-template-columns: minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="../index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="../index.html">Home</a><a href="../primer.html">Primer</a><a href="../compare.html">Compare</a><a href="../software.html">Software</a></nav>
+      <a class="btn top__cta" href="../index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="../providers/nvidia.html"><span class="side__logo"><img src="../assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="../providers/amd.html"><span class="side__logo"><img src="../assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="../providers/google-tpu.html"><span class="side__logo"><img src="../assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="../providers/aws.html"><span class="side__logo"><img src="../assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="../providers/microsoft-maia.html"><span class="side__logo"><img src="../assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="../providers/qualcomm.html"><span class="side__logo"><img src="../assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="../providers/cerebras.html" aria-current="page"><span class="side__logo"><img src="../assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="../providers/groq.html"><span class="side__logo"><img src="../assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <!-- Block 1: Available series -->
+    <section class="provider-hero">
+      <span class="camp camp-spec">Specialist</span>
+      <h1>Cerebras: <span class="grad-text">CS-4 (three WSE-3 Turbo wafers)</span></h1>
+      <p class="lede">Cerebras doesn't cut a wafer into chips. It keeps the whole wafer as one processor, with its memory on the same silicon. CS-4, announced 18 August 2026, puts three of these wafers in one rack, built for fast token generation. First shipments were due in Q3 2026.</p>
+      <div class="timeline" role="group" aria-label="Available series">
+        <span class="gen">WSE-1 / CS-1</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">WSE-2 / CS-2</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">WSE-3 / CS-3</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen latest">WSE-3 Turbo / CS-4</span>
+      </div>
+    </section>
+
+    <!-- Block 2: Latest flagship at a glance -->
+    <section>
+      <div class="stats">
+        <div class="stat"><span class="v">3</span><span class="l">WSE-3 Turbo wafers per CS-4 system</span></div>
+        <div class="stat"><span class="v">750 PF</span><span class="l">sparse FP16 per system (derived: 3 × 250)</span><span class="tag tag-verify">PRESS</span></div>
+        <div class="stat"><span class="v">132 GB</span><span class="l">on-wafer SRAM per system (derived: 3 × 44 GB)</span><span class="tag tag-verify">PRESS</span></div>
+        <div class="stat"><span class="v">2 µs</span><span class="l">wafer-to-wafer latency, best case</span></div>
+      </div>
+    </section>
+
+    <!-- Blocks 3–6 as tabs -->
+    <section>
+      <div class="tabs" role="tablist" aria-label="CS-4 sections">
+        <button role="tab" aria-selected="true"  aria-controls="tab-hw" id="tab-hw-btn">Inside the system</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-chip" id="tab-chip-btn">The wafer</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-sw" id="tab-sw-btn">Software</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-claims" id="tab-claims-btn">Claims</button>
+      </div>
+
+      <!-- ===================== Block 4: Hardware ecosystem ===================== -->
+      <div class="tab-panel" id="tab-hw" role="tabpanel" aria-labelledby="tab-hw-btn">
+        <div class="section-head">
+          <h2>Take the system apart</h2>
+          <p>Click a component to learn why it's special. Tap <b role="img" aria-label="the i button">ⓘ</b> to learn what that kind of part is.</p>
+        </div>
+        <p class="legend">Figures are Cerebras's own unless tagged <span class="tag tag-verify">PRESS</span> (reported by trade press, not confirmed by Cerebras). Cerebras hasn't published CS-4's size, weight or power draw.</p>
+
+        <div data-explorer data-noun="components of the system">
+          <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer">
+            <!-- ---------- Left: the rack ---------- -->
+            <div class="rack-col">
+              <h3>The rack · Nexus platform</h3>
+              <div class="rack-frame">
+                <div class="part" data-part="power" data-role="power">
+                  <button class="part-btn"><span class="n">Power shelves ×3</span><span class="s">front of the rack · AC in, 54.5 V DC out</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="cb-concept-power" aria-label="What is power delivery?">i</button>
+                </div>
+                <div class="part" data-part="backpack" data-role="tray">
+                  <button class="part-btn"><span class="n">Wafer-Scale Backpacks ×3</span><span class="s">one wafer each · rear of the rack</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="cb-concept-cooling" aria-label="What is liquid cooling?">i</button>
+                </div>
+                <div class="part" data-part="dwl" data-role="net">
+                  <button class="part-btn"><span class="n">Direct Wafer Links</span><span class="s">wafer to wafer, no switch</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="cb-concept-scaleout" aria-label="What is a scale-out network?">i</button>
+                </div>
+              </div>
+
+              <h3>Inside one backpack</h3>
+              <div class="tray-zoom">
+                <div class="part" data-part="wafer" data-role="gpu">
+                  <button class="part-btn"><span class="n">WSE-3 Turbo</span><span class="s">the wafer ×1</span></button>
+                  <button class="info-btn" popovertarget="cb-concept-wafer" aria-label="What is wafer-scale integration?">i</button>
+                </div>
+                <div class="part" data-part="wio" data-role="net">
+                  <button class="part-btn"><span class="n">Wafer I/O Module</span><span class="s">RoCE v2 + links</span></button>
+                  <button class="info-btn" popovertarget="cb-concept-rdma" aria-label="What is RoCE and RDMA?">i</button>
+                </div>
+                <div class="part" data-part="host" data-role="cpu">
+                  <button class="part-btn"><span class="n">Host CPU</span><span class="s">control · PRESS</span></button>
+                  <button class="info-btn" popovertarget="cb-concept-host" aria-label="What is a host CPU?">i</button>
+                </div>
+              </div>
+
+              <h3>Beyond the rack</h3>
+              <div class="beyond">
+                <div class="part" data-part="memx" data-role="net">
+                  <button class="part-btn"><span class="n">MemoryX + SwarmX</span><span class="s">CS-3 scale-out</span></button>
+                  <button class="info-btn" popovertarget="cb-concept-streaming" aria-label="What is weight streaming?">i</button>
+                </div>
+                <div class="part" data-part="dc" data-role="tray">
+                  <button class="part-btn"><span class="n">Inference data centres</span><span class="s">where it's served</span></button>
+                  <button class="info-btn" popovertarget="cb-concept-decode" aria-label="What is prefill and decode?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ---------- Right: detail panels ---------- -->
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">👈</div>
+                <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="power" data-role="power" hidden>
+                <span class="role">Rack infrastructure <button class="info-btn inline" popovertarget="cb-concept-power" aria-label="What is power delivery?">i</button></span>
+                <h3>Power shelves</h3>
+                <div class="count">×3 at the front of each Nexus rack <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> a GPU board sends power through about 50 mm of circuit board before it reaches the chip. Cerebras says CS-4 converts power about 0.5 mm from the wafer, 100× closer, with no circuit board in the final path. That lets it feed the wafer twice the power it got before, which is how the same silicon runs faster.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">0.5 mm</span><span class="l">converter to wafer (GPU boards: ~50 mm)</span></div>
+                  <div class="stat"><span class="v">2×</span><span class="l">power into each wafer vs WSE-3</span></div>
+                  <div class="stat"><span class="v">54.5 V</span><span class="l">DC output; up to 277 V AC in</span></div>
+                  <div class="stat"><span class="v">120–140 kW</span><span class="l">rack power: The Register's estimate</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Each backpack can draw from up to 30 air-cooled AC/DC modules, each with its own 30 A breaker.</li>
+                      <li>Spare modules are built in: 5+1, 4+1, 3+1 or 4+2 layouts.</li>
+                      <li>Up to six AC feeds enter at the top of the rack. Cerebras hasn't published a rack power figure.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="backpack">Backpacks</button><button data-goto="wafer">The wafer</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="backpack" data-role="tray" hidden>
+                <span class="role">Building block <button class="info-btn inline" popovertarget="cb-concept-cooling" aria-label="What is liquid cooling?">i</button></span>
+                <h3>Wafer-Scale Backpack</h3>
+                <div class="count">×3 per rack · one wafer in each · mounted vertically at the rear</div>
+                <p class="why"><strong>Why it's special:</strong> one self-contained module holds the wafer, power conversion, direct liquid cooling, high-speed I/O and control electronics. Backpacks drop into a rack on site once the front power rack is installed, and Cerebras says that cuts deployment "from days to hours". It also lets power, cooling and I/O be upgraded one at a time.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">3</span><span class="l">backpacks per rack</span></div>
+                  <div class="stat"><span class="v">50%</span><span class="l">fewer components than before</span></div>
+                  <div class="stat"><span class="v">60%</span><span class="l">more automated assembly</span></div>
+                  <div class="stat"><span class="v">~100 lb</span><span class="l">per backpack: estimate</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Each backpack has its own water loop with flow metering, dry quick-disconnect valves, and leak and condensation sensors that can cut power.</li>
+                      <li>Flow rates and temperatures aren't published.</li>
+                      <li>The Register estimates about 46 kW per backpack <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Look inside</h4>
+                    <div class="links-to"><button data-goto="wafer">WSE-3 Turbo</button><button data-goto="wio">I/O module</button><button data-goto="host">Host CPU</button><button data-goto="power">Power shelves</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="dwl" data-role="net" hidden>
+                <span class="role">Wafer-to-wafer network <button class="info-btn inline" popovertarget="cb-concept-scaleout" aria-label="What is a scale-out network?">i</button></span>
+                <h3>Direct Wafer Links</h3>
+                <div class="count">Proprietary · within and across racks · no switch in between</div>
+                <p class="why"><strong>Why it's special:</strong> GPU racks need switch chips to join their processors. Cerebras wires wafers straight to each other, so a message takes as little as 2 µs. That matters because a model too big for one wafer is split across several, and every token has to cross the links.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2 µs</span><span class="l">wafer to wafer, as low as</span></div>
+                  <div class="stat"><span class="v">2.4 Tb/s</span><span class="l">off-wafer per wafer (7.2 per system, derived)</span></div>
+                  <div class="stat"><span class="v">5 → 2 µs</span><span class="l">latency vs the previous generation</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Carries activations between wafers when one model is pipelined across several.</li>
+                      <li>The Register reports a 2D torus layout with no mandatory switches <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Standard Ethernet (RoCE v2) is also supported, with possibly higher latency <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="wio">Wafer I/O Module</button><button data-goto="wafer">The wafer</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="wafer" data-role="gpu" hidden>
+                <span class="role">Accelerator <button class="info-btn inline" popovertarget="cb-concept-wafer" aria-label="What is wafer-scale integration?">i</button></span>
+                <h3>WSE-3 Turbo</h3>
+                <div class="count">×3 per system · 4 trillion transistors · TSMC 5nm <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> it's one processor the size of a wafer, about 57× the area of Nvidia's 814 mm² H100 die (derived). Turbo keeps the same 900,000 cores and the same silicon design as WSE-3. It gets twice the power and, per Cerebras, twice the speed. The Register estimates the clock went from about 1.4 to 2.8 GHz <span class="tag tag-verify">PRESS</span>.</p>
+                <h4>Key numbers (per wafer)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">46,225 mm²</span><span class="l">area (≈ 215 × 215 mm, derived)</span></div>
+                  <div class="stat"><span class="v">250 PF</span><span class="l">AI compute (WSE-3: 125); "sparse FP16" per press</span></div>
+                  <div class="stat"><span class="v">44 GB</span><span class="l">on-wafer SRAM, same as WSE-3</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">43.2 PB/s</span><span class="l">memory bandwidth (WSE-3: 21.6 <span class="tag tag-verify">PRESS</span>)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Holds the model's working weights in SRAM next to the cores, so no off-chip memory is read. The Register thinks the peak bandwidth is theoretical <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>The trade-off: 44 GB per wafer is about 6.5× less than a Rubin GPU's 288 GB (derived), so big models use several wafers.</li>
+                      <li>Open "The wafer" tab for the blocks on it.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="wio">Wafer I/O Module</button><button data-goto="host">Host CPU</button><button data-goto="power">Power shelves</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="wio" data-role="net" hidden>
+                <span class="role">I/O subsystem <button class="info-btn inline" popovertarget="cb-concept-rdma" aria-label="What is RoCE and RDMA?">i</button></span>
+                <h3>Wafer I/O Module</h3>
+                <div class="count">New in CS-4 · programmable · extends the fabric from the wafer edges</div>
+                <p class="why"><strong>Why it's special:</strong> it is the one door out of the wafer. It doubles I/O bandwidth and cuts latency versus CS-3, and it speaks two languages: Direct Wafer Links to other wafers, and standard RoCE v2 Ethernet to everything else, including other vendors' machines.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2.4 Tb/s</span><span class="l">per wafer (CS-3: 1.2) <span class="tag tag-verify">PRESS</span></span></div>
+                  <div class="stat"><span class="v">2 µs</span><span class="l">wafer to wafer, as low as</span></div>
+                  <div class="stat"><span class="v">RoCE v2</span><span class="l">RDMA over Ethernet</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Joins CS-4 to the GPUs or other chips that handle the prompt (prefill) in a split serving setup.</li>
+                      <li>Reportedly works with Arista for scale-out and front-end networking <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Cerebras hasn't published port counts or speeds.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="wafer">The wafer</button><button data-goto="dwl">Direct Wafer Links</button><button data-goto="dc">Data centres</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="host" data-role="cpu" hidden>
+                <span class="role">Host / control <button class="info-btn inline" popovertarget="cb-concept-host" aria-label="What is a host CPU?">i</button></span>
+                <h3>Host CPU and control electronics</h3>
+                <div class="count">In each backpack · a reported AMD EPYC <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> mostly that it's small. The wafer does the maths on its own, so the host only boots the system, handles requests and runs control software. Cerebras names "control electronics" inside each backpack but hasn't named the CPU. The Next Platform reports it as an AMD EPYC.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">1</span><span class="l">per backpack (reported)</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">Unknown</span><span class="l">model, core count, memory</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Runs the operating system and the software that feeds the wafer.</li>
+                      <li>Cerebras hasn't documented its link to the wafer.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="wafer">The wafer</button><button data-goto="wio">I/O module</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="memx" data-role="net" hidden>
+                <span class="role">Cluster fabric (CS-3 era) <button class="info-btn inline" popovertarget="cb-concept-streaming" aria-label="What is weight streaming?">i</button></span>
+                <h3>MemoryX + SwarmX</h3>
+                <div class="count">Documented for CS-3 · no CS-4 source mentions them</div>
+                <p class="why"><strong>Why it's special:</strong> for training, CS-3 keeps a model's weights off the wafer in a MemoryX box and streams them in layer by layer, while SwarmX spreads them across many systems. The result: model size is limited by MemoryX, not by 44 GB of SRAM. For CS-4 inference, Cerebras instead describes pipelining a model across wafers. Whether MemoryX and SwarmX are used with CS-4 isn't stated.</p>
+                <h4>Key numbers (CS-3)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">1,200 TB</span><span class="l">MemoryX, largest option</span></div>
+                  <div class="stat"><span class="v">2,048</span><span class="l">CS-3 systems linked by SwarmX, up to</span></div>
+                  <div class="stat"><span class="v">~23 kW</span><span class="l">one CS-3 at peak</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>How big models fit</h4>
+                    <ul>
+                      <li>Streaming: weights live off-wafer, activations stay on it.</li>
+                      <li>Pipelining (CS-4 inference): layers sit on different wafers. Heavy traffic stays inside each wafer, and mostly activations cross between wafers.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="wafer">The wafer</button><button data-goto="dwl">Direct Wafer Links</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="dc" data-role="tray" hidden>
+                <span class="role">Where it runs <button class="info-btn inline" popovertarget="cb-concept-decode" aria-label="What is prefill and decode?">i</button></span>
+                <h3>Cerebras inference data centres</h3>
+                <div class="count">Cloud service and on-premises</div>
+                <p class="why"><strong>Why it's special:</strong> Cerebras sells speed mainly as a cloud service, not just as boxes. It positions CS-4 for the decode step, which writes out the answer. The prompt-reading step (prefill) can run elsewhere: Cerebras names GPUs, AMD Helios and AWS Trainium.</p>
+                <h4>Key numbers (March 2025 plan)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">300+</span><span class="l">CS-3 systems planned in Oklahoma City</span></div>
+                  <div class="stat"><span class="v">40M</span><span class="l">Llama 70B tokens/s planned, all new sites</span></div>
+                  <div class="stat"><span class="v">~85%</span><span class="l">of capacity in the US</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>Sites named</h4>
+                    <ul>
+                      <li>Santa Clara, Stockton and Dallas were online by then. Minneapolis, Oklahoma City (with Scale Datacenter) and Montreal (with Enovum) were planned for 2025, plus Europe.</li>
+                      <li>These are 2025 plans. Today's status isn't verified here.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="wio">Wafer I/O Module</button><button data-goto="memx">MemoryX + SwarmX</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards (ⓘ) ===================== -->
+          <div class="concept" id="cb-concept-power" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Power delivery close to the chip</h4></div>
+            <button class="close" popovertarget="cb-concept-power" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Chips run on low voltage and huge current. Every millimetre that current travels wastes some of it as heat and lets the voltage sag. So the closer the power converter sits to the chip, the less is lost.</p>
+              <p>A wafer-sized chip makes this harder: power can't just arrive at the edge, because the middle would be starved. It has to come in from behind, across the whole face.</p>
+              <div class="analogy"><b>Analogy:</b> watering a lawn. A hose at one corner leaves the far side dry; a sprinkler over every patch doesn't.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-cooling" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Liquid cooling</h4></div>
+            <button class="close" popovertarget="cb-concept-cooling" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Almost all the power a chip uses becomes heat. Water carries far more heat than air, so <b>direct liquid cooling</b> pumps water through a metal <b>cold plate</b> pressed against the chip.</p>
+              <p>A wafer produces heat over a huge area, so Cerebras puts the water on one face of the wafer and the power on the other.</p>
+              <div class="analogy"><b>Analogy:</b> a car radiator. Air alone can't cool a racing engine; a loop of liquid can.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-scaleout" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Scale-out, with or without switches</h4></div>
+            <button class="close" popovertarget="cb-concept-scaleout" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Scale-out</b> means joining many machines so they work on one model. Normally each machine plugs into a <b>switch</b>, a box that routes traffic. Switches add cost, power and a little delay.</p>
+              <p>A <b>switch-free</b> design wires machines directly to their neighbours. It saves the hop, but each machine must carry the routing itself.</p>
+              <div class="analogy"><b>Analogy:</b> a roundabout versus a signalled junction. Neighbours pass straight through; nothing has to wait for a light.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-wafer" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Wafer-scale integration and the reticle limit</h4></div>
+            <button class="close" popovertarget="cb-concept-wafer" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Chips are printed on a wafer, a thin disc of silicon, through a mask. One exposure covers a small area, the <b>reticle limit</b>, about 800 mm² or a bit more. Normally the wafer is then cut into many small chips. The biggest GPU dies sit at that limit.</p>
+              <p><b>Wafer-scale integration</b> skips the cutting. Cerebras keeps a whole square of wafer, 46,225 mm², as one processor.</p>
+              <div class="analogy"><b>Analogy:</b> a sheet of stamps. Everyone else tears it into single stamps; Cerebras uses the whole sheet as one stamp.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-rdma" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What are RoCE v2 and RDMA?</h4></div>
+            <button class="close" popovertarget="cb-concept-rdma" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>RDMA</b> lets one machine write straight into another's memory without involving either CPU. <b>RoCE v2</b> carries RDMA over ordinary Ethernet, so a system can talk to standard data-centre networks.</p>
+              <div class="analogy"><b>Analogy:</b> couriers who drop a parcel on your desk, instead of handing it to reception to pass along.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-host" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a host CPU?</h4></div>
+            <button class="close" popovertarget="cb-concept-host" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Accelerators can't run an operating system. A <b>host CPU</b> boots the machine, accepts requests, sets up the work and handles everything that isn't matrix maths.</p>
+              <div class="analogy"><b>Analogy:</b> the receptionist who takes the call and passes it to the specialist.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-streaming" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Weight streaming and pipelining</h4></div>
+            <button class="close" popovertarget="cb-concept-streaming" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A model's <b>weights</b> are its learned numbers. If they don't fit in a chip's memory, there are two ways out.</p>
+              <p><b>Weight streaming</b> keeps weights in a separate store and feeds them to the chip layer by layer. <b>Pipelining</b> gives each chip its own layers and passes the in-progress results down the line.</p>
+              <div class="analogy"><b>Analogy:</b> streaming is one cook fetching ingredients from a pantry as each step needs them. Pipelining is an assembly line, one station per step.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-decode" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Prefill and decode</h4></div>
+            <button class="close" popovertarget="cb-concept-decode" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>An AI answer has two phases. <b>Prefill</b> reads your whole prompt at once, which is heavy on maths. <b>Decode</b> then writes the answer one token at a time, and each token needs the whole model's weights read again, so memory speed is the limit.</p>
+              <p>Cerebras's on-wafer SRAM targets decode. That is why it pitches CS-4 alongside other chips doing prefill.</p>
+              <div class="analogy"><b>Analogy:</b> reading a question carefully (prefill), then answering aloud one word at a time (decode).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 3: The wafer ===================== -->
+      <div class="tab-panel" id="tab-chip" role="tabpanel" aria-labelledby="tab-chip-btn" hidden>
+        <div class="section-head">
+          <h2>Inside the wafer</h2>
+          <p>Click any block. Tap <b role="img" aria-label="the i button">ⓘ</b> to learn what that block is.</p>
+        </div>
+        <p class="legend">Illustrative sketch, not a die photo and not to scale. The real wafer is a square of identical die-sized regions; the grid and block sizes here are made up. Figures are Cerebras's own unless tagged <span class="tag tag-verify">PRESS</span>.</p>
+
+        <div data-explorer data-noun="blocks on the wafer">
+          <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer die-layout">
+            <div>
+              <div class="die-scroll">
+                <div class="package wafer cb-wafer" role="group" aria-label="Wafer schematic (illustrative)">
+                  <div class="part" data-part="io" data-role="io">
+                    <button class="part-btn"><span class="n">Wafer edge I/O</span><span class="s">top edge</span></button>
+                    <button class="info-btn" popovertarget="cb-concept-edge" aria-label="What is edge I/O?">i</button>
+                  </div>
+                  <div class="cb-dies">
+                    <div class="cb-die">
+                      <div class="die-label">Die region</div>
+                      <div class="part" data-part="cores" data-role="compute">
+                        <button class="part-btn"><span class="n">AI cores + SRAM</span></button>
+                          <button class="info-btn" popovertarget="cb-concept-sram" aria-label="What is on-chip SRAM?">i</button>
+                      </div>
+                      <div class="cb-pair">
+                        <div class="part" data-part="mesh" data-role="sched">
+                          <button class="part-btn"><span class="n">2D mesh</span></button>
+                          <button class="info-btn" popovertarget="cb-concept-mesh" aria-label="What is a 2D mesh?">i</button>
+                        </div>
+                        <div class="part" data-part="spare" data-role="sec">
+                          <button class="part-btn"><span class="n">Spare cores</span></button>
+                          <button class="info-btn" popovertarget="cb-concept-yield" aria-label="What is yield?">i</button>
+                        </div>
+                      </div>
+                      <div class="part" data-part="scribe" data-role="cache">
+                        <button class="part-btn"><span class="n"><span aria-hidden="true">↔</span> Scribe-line links</span></button>
+                          <button class="info-btn" popovertarget="cb-concept-scribe" aria-label="What are scribe lines?">i</button>
+                      </div>
+                    </div>
+                    <div class="cb-die">
+                      <div class="die-label">Die region</div>
+                      <div class="part" data-part="cores" data-role="compute">
+                        <button class="part-btn"><span class="n">AI cores + SRAM</span></button>
+                      </div>
+                      <div class="cb-pair">
+                        <div class="part" data-part="mesh" data-role="sched">
+                          <button class="part-btn"><span class="n">2D mesh</span></button>
+                        </div>
+                        <div class="part" data-part="spare" data-role="sec">
+                          <button class="part-btn"><span class="n">Spare cores</span></button>
+                        </div>
+                      </div>
+                      <div class="part" data-part="scribe" data-role="cache">
+                        <button class="part-btn"><span class="n"><span aria-hidden="true">↔</span> Scribe-line links</span></button>
+                      </div>
+                    </div>
+                    <div class="cb-die">
+                      <div class="die-label">Die region</div>
+                      <div class="part" data-part="cores" data-role="compute">
+                        <button class="part-btn"><span class="n">AI cores + SRAM</span></button>
+                      </div>
+                      <div class="cb-pair">
+                        <div class="part" data-part="mesh" data-role="sched">
+                          <button class="part-btn"><span class="n">2D mesh</span></button>
+                        </div>
+                        <div class="part" data-part="spare" data-role="sec">
+                          <button class="part-btn"><span class="n">Spare cores</span></button>
+                        </div>
+                      </div>
+                      <div class="part" data-part="scribe" data-role="cache">
+                        <button class="part-btn"><span class="n"><span aria-hidden="true">↔</span> Scribe-line links</span></button>
+                      </div>
+                    </div>
+                    <div class="cb-die">
+                      <div class="die-label">Die region</div>
+                      <div class="part" data-part="cores" data-role="compute">
+                        <button class="part-btn"><span class="n">AI cores + SRAM</span></button>
+                      </div>
+                      <div class="cb-pair">
+                        <div class="part" data-part="mesh" data-role="sched">
+                          <button class="part-btn"><span class="n">2D mesh</span></button>
+                        </div>
+                        <div class="part" data-part="spare" data-role="sec">
+                          <button class="part-btn"><span class="n">Spare cores</span></button>
+                        </div>
+                      </div>
+                      <div class="part" data-part="scribe" data-role="cache">
+                        <button class="part-btn"><span class="n"><span aria-hidden="true">↔</span> Scribe-line links</span></button>
+                      </div>
+                    </div>
+                    <div class="cb-die">
+                      <div class="die-label">Die region</div>
+                      <div class="part" data-part="cores" data-role="compute">
+                        <button class="part-btn"><span class="n">AI cores + SRAM</span></button>
+                      </div>
+                      <div class="cb-pair">
+                        <div class="part" data-part="mesh" data-role="sched">
+                          <button class="part-btn"><span class="n">2D mesh</span></button>
+                        </div>
+                        <div class="part" data-part="spare" data-role="sec">
+                          <button class="part-btn"><span class="n">Spare cores</span></button>
+                        </div>
+                      </div>
+                      <div class="part" data-part="scribe" data-role="cache">
+                        <button class="part-btn"><span class="n"><span aria-hidden="true">↔</span> Scribe-line links</span></button>
+                      </div>
+                    </div>
+                    <div class="cb-die">
+                      <div class="die-label">Die region</div>
+                      <div class="part" data-part="cores" data-role="compute">
+                        <button class="part-btn"><span class="n">AI cores + SRAM</span></button>
+                      </div>
+                      <div class="cb-pair">
+                        <div class="part" data-part="mesh" data-role="sched">
+                          <button class="part-btn"><span class="n">2D mesh</span></button>
+                        </div>
+                        <div class="part" data-part="spare" data-role="sec">
+                          <button class="part-btn"><span class="n">Spare cores</span></button>
+                        </div>
+                      </div>
+                      <div class="part" data-part="scribe" data-role="cache">
+                        <button class="part-btn"><span class="n"><span aria-hidden="true">↔</span> Scribe-line links</span></button>
+                      </div>
+                    </div>
+                    <div class="cb-die">
+                      <div class="die-label">Die region</div>
+                      <div class="part" data-part="cores" data-role="compute">
+                        <button class="part-btn"><span class="n">AI cores + SRAM</span></button>
+                      </div>
+                      <div class="cb-pair">
+                        <div class="part" data-part="mesh" data-role="sched">
+                          <button class="part-btn"><span class="n">2D mesh</span></button>
+                        </div>
+                        <div class="part" data-part="spare" data-role="sec">
+                          <button class="part-btn"><span class="n">Spare cores</span></button>
+                        </div>
+                      </div>
+                      <div class="part" data-part="scribe" data-role="cache">
+                        <button class="part-btn"><span class="n"><span aria-hidden="true">↔</span> Scribe-line links</span></button>
+                      </div>
+                    </div>
+                    <div class="cb-die">
+                      <div class="die-label">Die region</div>
+                      <div class="part" data-part="cores" data-role="compute">
+                        <button class="part-btn"><span class="n">AI cores + SRAM</span></button>
+                      </div>
+                      <div class="cb-pair">
+                        <div class="part" data-part="mesh" data-role="sched">
+                          <button class="part-btn"><span class="n">2D mesh</span></button>
+                        </div>
+                        <div class="part" data-part="spare" data-role="sec">
+                          <button class="part-btn"><span class="n">Spare cores</span></button>
+                        </div>
+                      </div>
+                      <div class="part" data-part="scribe" data-role="cache">
+                        <button class="part-btn"><span class="n"><span aria-hidden="true">↔</span> Scribe-line links</span></button>
+                      </div>
+                    </div>
+                    <div class="cb-die">
+                      <div class="die-label">Die region</div>
+                      <div class="part" data-part="cores" data-role="compute">
+                        <button class="part-btn"><span class="n">AI cores + SRAM</span></button>
+                      </div>
+                      <div class="cb-pair">
+                        <div class="part" data-part="mesh" data-role="sched">
+                          <button class="part-btn"><span class="n">2D mesh</span></button>
+                        </div>
+                        <div class="part" data-part="spare" data-role="sec">
+                          <button class="part-btn"><span class="n">Spare cores</span></button>
+                        </div>
+                      </div>
+                      <div class="part" data-part="scribe" data-role="cache">
+                        <button class="part-btn"><span class="n"><span aria-hidden="true">↔</span> Scribe-line links</span></button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="part" data-part="io" data-role="io"><button class="part-btn"><span class="n">Wafer edge I/O</span><span class="s">bottom edge</span></button></div>
+                  <div class="part" data-part="power" data-role="mem">
+                    <button class="part-btn"><span class="n">Power in from behind · water from the front</span><span class="s">whole-face delivery</span></button>
+                    <button class="info-btn" popovertarget="cb-concept-vertical" aria-label="How is a wafer powered and cooled?">i</button>
+                  </div>
+                </div>
+              </div>
+              <p class="die-caption">Nine die-sized regions shown. Gaps between them are scribe lines, crossed by wiring.</p>
+            </div>
+
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">🔬</div>
+                <p><strong>Zoom into the wafer.</strong><br>Start with the green AI cores, where the maths happens.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="cores" data-role="compute" hidden>
+                <span class="role">Compute and memory <button class="info-btn inline" popovertarget="cb-concept-sram" aria-label="What is on-chip SRAM?">i</button></span>
+                <h3>AI cores and their SRAM</h3>
+                <div class="count">900,000 active cores · about 0.05 mm² each</div>
+                <p class="why"><strong>Why it's special:</strong> each core is tiny and has its own memory beside it, with no distant memory chip to wait for. Memory bandwidth <button class="info-btn inline" popovertarget="cb-concept-bandwidth" aria-label="What is memory bandwidth?">i</button> is what limits token generation, and on-wafer SRAM is where the 43.2 PB/s comes from.</p>
+                <h4>Key numbers (per wafer)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">900,000</span><span class="l">active AI cores</span></div>
+                  <div class="stat"><span class="v">44 GB</span><span class="l">SRAM in total</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">~49 KB</span><span class="l">SRAM per core on average (derived)</span></div>
+                  <div class="stat"><span class="v">~0.05 mm²</span><span class="l">per core, ~1% of an H100 SM</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Runs the model's maths on the data held right beside it.</li>
+                      <li>WSE-3 Turbo keeps the same core count and SRAM as WSE-3, but runs faster.</li>
+                      <li>Per-core design and SRAM layout for Turbo aren't published.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="mesh">On-wafer fabric</button><button data-goto="spare">Spare cores</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="mesh" data-role="sched" hidden>
+                <span class="role">Fabric <button class="info-btn inline" popovertarget="cb-concept-mesh" aria-label="What is a 2D mesh?">i</button></span>
+                <h3>On-wafer 2D mesh fabric</h3>
+                <div class="count">Every core linked to its neighbours by short wires</div>
+                <p class="why"><strong>Why it's special:</strong> cores pass data to neighbours over wires a fraction of a millimetre long, not over cables between chips. That's why one wafer can show 53.5 PB/s of fabric bandwidth, and why Cerebras says it needs no cable bundles to join its processors.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">53.5 PB/s</span><span class="l">on-wafer fabric, WSE-3 Turbo</span></div>
+                  <div class="stat"><span class="v">27 PB/s</span><span class="l">WSE-3</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Moves data between cores as the model's layers are laid out across the wafer.</li>
+                      <li>Reroutes around dead cores (see "Spare cores").</li>
+                      <li>"2D mesh" is Cerebras's long-standing description. The CS-4 sources checked here don't repeat it. The Register reports a 2D torus <i>between</i> wafers <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="cores">AI cores</button><button data-goto="scribe">Scribe-line links</button><button data-goto="io">Edge I/O</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="scribe" data-role="cache" hidden>
+                <span class="role">Die-to-die wiring <button class="info-btn inline" popovertarget="cb-concept-scribe" aria-label="What are scribe lines?">i</button></span>
+                <h3>Wiring across scribe lines</h3>
+                <div class="count">What turns many dies into one processor</div>
+                <p class="why"><strong>Why it's special:</strong> the blank strips between dies are normally cut through. Cerebras worked with TSMC to lay wires across them, so the cores of neighbouring dies talk as if they shared one die. That is how it gets past the reticle limit.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">1</span><span class="l">processor from a whole wafer</span></div>
+                  <div class="stat"><span class="v">Unpublished</span><span class="l">per-link bandwidth and die count</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Extends the on-wafer mesh from one die to the next.</li>
+                      <li>The method dates from the first WSE (IEEE Spectrum, 2019). Cerebras hasn't described changes for Turbo.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="mesh">On-wafer fabric</button><button data-goto="cores">AI cores</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="spare" data-role="sec" hidden>
+                <span class="role">Defect tolerance <button class="info-btn inline" popovertarget="cb-concept-yield" aria-label="What is yield?">i</button></span>
+                <h3>Spare cores and rerouting</h3>
+                <div class="count">970,000 cores built · 900,000 switched on (WSE-3)</div>
+                <p class="why"><strong>Why it's special:</strong> a flaw anywhere on a wafer is certain, so the design expects them. When a core is bad, the fabric routes around it and a spare takes its place. Cerebras says a flaw costs it about 100× less silicon than it would cost a GPU.</p>
+                <h4>Key numbers (WSE-3, Cerebras's calculation)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">~46</span><span class="l">expected defects on the wafer</span></div>
+                  <div class="stat"><span class="v">~2.2 mm²</span><span class="l">silicon lost (72 H100-size dies: ~361 mm²)</span></div>
+                  <div class="stat"><span class="v">~7%</span><span class="l">cores not enabled (derived: 70,000 of 970,000)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Assumes about 0.001 defects per mm² on TSMC 5nm, a reported figure the blog cites.</li>
+                      <li>Cerebras's own spare-core counts for WSE-3 Turbo aren't published.</li>
+                      <li>These are company claims; no independent yield figure is public.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="cores">AI cores</button><button data-goto="mesh">On-wafer fabric</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="io" data-role="io" hidden>
+                <span class="role">Edge I/O <button class="info-btn inline" popovertarget="cb-concept-edge" aria-label="What is edge I/O?">i</button></span>
+                <h3>Wafer edge I/O</h3>
+                <div class="count">The Wafer I/O Module extends the fabric from the wafer edges</div>
+                <p class="why"><strong>Why it's special:</strong> inside the wafer, data moves at 53.5 PB/s. Leaving it, data moves at 2.4 Tb/s per wafer, about 180,000× less (derived; the two figures measure different things). So Cerebras keeps traffic on the wafer wherever it can.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2.4 Tb/s</span><span class="l">per wafer, off the wafer</span></div>
+                  <div class="stat"><span class="v">2 µs</span><span class="l">wafer to wafer, as low as</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Programmable, so the packet handling can change in software.</li>
+                      <li>Carries Direct Wafer Links and standard RoCE v2 Ethernet.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="mesh">On-wafer fabric</button><button data-goto="power">Power &amp; cooling</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="power" data-role="mem" hidden>
+                <span class="role">Power and cooling <button class="info-btn inline" popovertarget="cb-concept-vertical" aria-label="How is a wafer powered and cooled?">i</button></span>
+                <h3>Power and cooling delivery</h3>
+                <div class="count">Power through one face, water through the other</div>
+                <p class="why"><strong>Why it's special:</strong> a wafer this big can't be fed from its edges, so power comes from behind and cooling from the front. CS-4 puts power conversion about 0.5 mm away, with no circuit board in the final path. That's what lets Turbo draw twice the power.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">2×</span><span class="l">power into the wafer vs WSE-3</span></div>
+                  <div class="stat"><span class="v">~33 kW</span><span class="l">wafer power: The Register's estimate</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does</h4>
+                    <ul>
+                      <li>Original WSE (2019): about 20,000 A at roughly 0.8 V, a water-cooled cold plate below, and a custom material to absorb differing expansion of copper, silicon and board <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>CS-4 current and coolant figures aren't published.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="cores">AI cores</button><button data-goto="io">Edge I/O</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards for the wafer (ⓘ) ===================== -->
+          <div class="concept" id="cb-concept-sram" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>SRAM versus HBM</h4></div>
+            <button class="close" popovertarget="cb-concept-sram" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>SRAM</b> is memory built from the same transistors as the processor. It's extremely fast but takes lots of space, so a chip holds little of it. <b>HBM</b> is stacked DRAM beside the chip: slower, but far more of it.</p>
+              <p>A Rubin GPU has 288 GB of HBM4. One Cerebras wafer has 44 GB of SRAM. Cerebras wins on speed, loses on capacity. An <b>AI core</b> is one tiny processor, and the wafer has 900,000 of them.</p>
+              <div class="analogy"><b>Analogy:</b> SRAM is the desk in front of you; HBM is a warehouse across the road.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-bandwidth" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Memory bandwidth</h4></div>
+            <button class="close" popovertarget="cb-concept-bandwidth" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Bandwidth</b> is how much data memory can deliver per second. To write each token, a chip must read the model's weights, so bandwidth sets how fast tokens come out.</p>
+              <p>A Rubin GPU has about 22 TB/s. Cerebras quotes 43.2 PB/s per wafer, nearly 2,000× more (derived). The Register thinks real workloads won't reach the peak.</p>
+              <div class="analogy"><b>Analogy:</b> the width of a pipe. A wider pipe fills the bucket faster, however big the pump.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-mesh" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>2D mesh</h4></div>
+            <button class="close" popovertarget="cb-concept-mesh" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>In a <b>2D mesh</b>, processors sit on a grid and each connects to its north, south, east and west neighbours. Data hops from core to core. A <b>router</b> at each core decides which way it goes.</p>
+              <p>Short wires mean low delay and low power. The cost is that distant cores take several hops.</p>
+              <div class="analogy"><b>Analogy:</b> a city street grid. Every block connects to the next, and there's more than one way across town.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-scribe" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Scribe lines and the reticle limit</h4></div>
+            <button class="close" popovertarget="cb-concept-scribe" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Chip factories print the same pattern many times across a wafer. Each print covers a rectangle up to the <b>reticle limit</b>. Between the rectangles run blank strips, <b>scribe lines</b>, where a saw cuts the wafer into chips.</p>
+              <p>Cerebras doesn't cut. It adds wires across the strips instead.</p>
+              <div class="analogy"><b>Analogy:</b> a tiled floor. Others cut along the grout lines to sell single tiles; Cerebras lays bridges across the grout and keeps the floor.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-yield" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Yield and defect tolerance</h4></div>
+            <button class="close" popovertarget="cb-concept-yield" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Chip making leaves random flaws. A big chip is more likely to catch one, and a chip with a flaw is normally thrown away. The share that works is the <b>yield</b>.</p>
+              <p>GPU makers disable a few units to save flawed chips. Cerebras goes further: with tiny cores, a flaw kills only one core, and spares and rerouting cover for it.</p>
+              <div class="analogy"><b>Analogy:</b> a pothole in one lane. A single-lane road is blocked; a street grid just goes round.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-edge" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Edge I/O</h4></div>
+            <button class="close" popovertarget="cb-concept-edge" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>I/O</b> is how a chip talks to the outside. On a wafer, the interior is packed with cores, so the links to other systems come off the edges.</p>
+              <p>Because edge links are few compared with the fabric inside, the wafer's design keeps most traffic local.</p>
+              <div class="analogy"><b>Analogy:</b> a walled town. Streets inside are wide and busy; only a few gates lead out.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="cb-concept-vertical" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Vertical power and cooling</h4></div>
+            <button class="close" popovertarget="cb-concept-vertical" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Edge-fed power would starve the middle of a wafer, so power arrives through the back face and a liquid-cooled plate carries heat away from the front. Parts that expand differently when hot must still stay connected.</p>
+              <div class="analogy"><b>Analogy:</b> a sandwich. Power is the bottom slice, the cooler is the top, and the wafer is the filling that must stay in contact with both.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 5: Software ecosystem ===================== -->
+      <div class="tab-panel" id="tab-sw" role="tabpanel" aria-labelledby="tab-sw-btn" hidden>
+        <h2>Cerebras's software stack</h2>
+        <div class="stack">
+          <div class="layer"><span class="name">Access</span><span><b>Cerebras Inference API</b> (OpenAI-compatible, base URL api.cerebras.ai/v1) · cloud · <b>Dedicated Inference</b> with reserved capacity · on-premises systems</span></div>
+          <div class="layer"><span class="name">Serving</span><span>Cerebras's own inference service on CS-3 and CS-4 · <b>disaggregated</b>: prefill on GPUs, AMD Helios or AWS Trainium, decode on Cerebras</span></div>
+          <div class="layer"><span class="name">Frameworks</span><span><b>PyTorch</b> front end · Model Zoo for training and fine-tuning (dated examples: Llama 2, Falcon 40B, StarCoder 15B)</span></div>
+          <div class="layer"><span class="name">Compiler</span><span>The Cerebras compiler turns a PyTorch model into low-level instructions placed on the wafer's cores · part of the Cerebras Software Platform (CSoft)</span></div>
+          <div class="layer"><span class="name">Kernels / SDK</span><span><b>Cerebras SDK</b> and <b>CSL</b>, a C-like language for writing your own dataflow programs for the wafer</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="v">4,400+</span><span class="l">tokens/s per user, gpt-oss-120b on one CS-4</span></div>
+          <div class="stat"><span class="v">1,800+</span><span class="l">tokens/s, Gemma 4 31B on Cerebras Inference</span></div>
+          <div class="stat"><span class="v">Python · Node</span><span class="l">official SDKs for the API</span></div>
+          <div class="stat"><span class="v">Unclear</span><span class="l">which compiler/SDK version targets CS-4</span></div>
+        </div>
+        <p class="note">Why it matters: most users never touch the hardware. They change a base URL in OpenAI-style code and get fast tokens. The harder question for a buyer is training or custom kernels, where the model list and CS-4 support aren't published. Token speeds are Cerebras's own, from its blog and benchmarks it cites.</p>
+        <p><a href="../software.html">Compare with other vendors <span aria-hidden="true">→</span></a></p>
+      </div>
+
+      <!-- ===================== Block 6: Claims ===================== -->
+      <div class="tab-panel" id="tab-claims" role="tabpanel" aria-labelledby="tab-claims-btn" hidden>
+        <h2>Headline claims for CS-4</h2>
+        <p class="legend">Cerebras's own comparisons, from its CS-4 launch page (August 2026). Cerebras says results vary by workload, configuration, date and model. We found no independent benchmark of CS-4. The 43.2 PB/s peak may be theoretical (<span class="tag tag-verify">PRESS</span>: The Register).</p>
+        <div class="claims">
+          <div class="claim card"><span class="value">Up to 30×</span><span>faster inference than GPU systems (measured on gpt-oss-120b)</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">Up to 2×</span><span>speed per wafer vs the previous generation</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">Up to 10×</span><span>throughput per watt vs CS-3</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">4,400+ tok/s</span><span>per user, gpt-oss-120b, one CS-4</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">1,000+ tok/s</span><span>on models over 10 trillion parameters (extrapolated from internal tests)</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">43.2 PB/s</span><span>memory bandwidth per wafer</span><span class="tag tag-vendor">VENDOR</span></div>
+        </div>
+        <h3>What's next</h3>
+        <p>At Hot Chips 2026 Cerebras named a CS-5 for 2027, aiming at up to 10,000 tokens/s per user on open models, and a CS-6 that adds 3D-stacked DRAM to the wafer's SRAM. It hasn't published specs, and it doesn't use the name "WSE-4". It also says Nexus racks will carry several generations, and a roadmap of roughly 2× a year through 2029 is reported <span class="tag tag-verify">PRESS</span>.</p>
+        <h3>The business</h3>
+        <p>Cerebras listed on Nasdaq (CBRS) on 13 May 2026, pricing at $185 a share and raising about $5.55 billion at a reported valuation near $56.4 billion <span class="tag tag-verify">PRESS</span>. In January 2026 it signed a deal to supply OpenAI with up to 750 MW of inference capacity, reported as worth over $10 billion, with later reports of expansion to 2 GW <span class="tag tag-verify">PRESS</span>. Its filings, per press analysis, show heavy dependence on a few customers <span class="tag tag-verify">PRESS</span>.</p>
+      </div>
+    </section>
+
+    <nav class="pager">
+      <a href="qualcomm.html"><span aria-hidden="true">←</span> Qualcomm</a>
+      <a href="groq.html">Groq <span aria-hidden="true">→</span></a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">Sources:
+      <a href="https://www.cerebras.ai/blog/introducing-cerebras-cs-4">Cerebras: introducing CS-4</a> ·
+      <a href="https://cerebras.ai/cs4">Cerebras: CS-4 page</a> ·
+      <a href="https://cerebras.ai/blog/ultrafast-frontier-inference-cerebras-deep-dive-at-hot-chips-2026">Cerebras: Hot Chips 2026</a> ·
+      <a href="https://www.cerebras.ai/blog/100x-defect-tolerance-how-cerebras-solved-the-yield-problem">Cerebras: defect tolerance</a> ·
+      <a href="https://cerebras.ai/blog/cerebras-cs3">Cerebras: CS-3</a> ·
+      <a href="https://www.cerebras.ai/press-release/cerebras-announces-six-new-ai-datacenters-across-north-america-and-europe-to-deliver-industry-s">Cerebras: data centres</a> ·
+      <a href="https://inference-docs.cerebras.ai">Cerebras inference docs</a> ·
+      <a href="https://sdk.cerebras.ai/">Cerebras SDK docs</a> ·
+      <a href="https://www.theregister.com/a/5289286">The Register: CS-4</a> ·
+      <a href="https://www.nextplatform.com/compute/2026/08/19/cerebras-overclocks-wse-3-waferscale-engine-to-boost-inference-oomph-in-nexus-cs-4/5289400">The Next Platform: Nexus CS-4</a> ·
+      <a href="https://www.storagereview.com/news/cerebras-cs-4-three-wse-3-turbo-wafers-750-pflops-and-a-claimed-30x-over-gpu-racks">StorageReview: CS-4</a> ·
+      <a href="https://spectrum.ieee.org/cerebrass-giant-chip-will-smash-deep-learnings-speed-barrier">IEEE Spectrum: the first WSE</a>
+      <p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/rack-explorer.js"></script>
+<script src="../assets/js/glossary.js" defer></script>
+</body>
+</html>

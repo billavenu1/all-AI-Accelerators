@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The two-minute primer: terms for reading AI chip pages | AI Accelerators 101</title>
+  <meta name="description" content="Training versus inference, HBM versus SRAM, scale-up versus scale-out: the terms you need before opening any of the eight racks.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="The two-minute primer: terms for reading AI chip pages | AI Accelerators 101">
+  <meta property="og:description" content="Training versus inference, HBM versus SRAM, scale-up versus scale-out: the terms you need before opening any of the eight racks.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="assets/inner.css">
+  <link rel="stylesheet" href="assets/side.css">
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="index.html">Home</a><a href="primer.html" aria-current="page">Primer</a><a href="compare.html">Compare</a><a href="software.html">Software</a></nav>
+      <a class="btn top__cta" href="index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="providers/nvidia.html"><span class="side__logo"><img src="assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="providers/amd.html"><span class="side__logo"><img src="assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="providers/google-tpu.html"><span class="side__logo"><img src="assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="providers/aws.html"><span class="side__logo"><img src="assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="providers/microsoft-maia.html"><span class="side__logo"><img src="assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="providers/qualcomm.html"><span class="side__logo"><img src="assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="providers/cerebras.html"><span class="side__logo"><img src="assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="providers/groq.html"><span class="side__logo"><img src="assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <section>
+      <h1>The two-minute primer</h1>
+      <p class="lede">Everything you need to read the provider pages.</p>
+    </section>
+
+    <section>
+      <h2>Training versus inference</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Training</h3>
+          <p>Wants raw compute and very large clusters. Measured in FP8/FP4 petaflops and how many chips can act as one.</p>
+        </div>
+        <div class="card">
+          <h3>Inference</h3>
+          <p>Especially for agents with long contexts, wants memory bandwidth and low cost per token. Several vendors now ship separate parts for each job.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Glossary</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>PFLOPS at FP4 / FP8</td><td>Peak compute in petaflops at 4-bit or 8-bit floating point. Lower precision gives bigger numbers, so only compare like with like.</td></tr>
+            <tr><td>HBM3e / HBM4</td><td>Stacked memory beside the chip: large but bandwidth limited.</td></tr>
+            <tr><td>SRAM</td><td>Memory on the chip itself: tiny but extremely fast.</td></tr>
+            <tr><td>Memory bandwidth</td><td>How fast the chip reads its memory. For inference this usually matters more than PFLOPS.</td></tr>
+            <tr><td>Scale-up</td><td>Links chips inside a rack into one system (NVLink, UALink, ICI, NeuronLink).</td></tr>
+            <tr><td>Scale-out</td><td>Links racks into a cluster (Ethernet, InfiniBand, EFA).</td></tr>
+            <tr><td>DPU</td><td>Data processing unit: offloads networking, storage and security from the host CPU.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TODO: optional diagram — chip → tray → rack → pod, as inline SVG -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap"><p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="assets/js/main.js"></script>
+<script src="assets/js/glossary.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The software layer under AI chips: CUDA, ROCm, XLA and the rest | AI Accelerators 101</title>
+  <meta name="description" content="How PyTorch, Triton and MLIR sit above each vendor stack, with a matrix of native stacks and PyTorch paths for all eight providers.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="The software layer under AI chips: CUDA, ROCm, XLA and the rest | AI Accelerators 101">
+  <meta property="og:description" content="How PyTorch, Triton and MLIR sit above each vendor stack, with a matrix of native stacks and PyTorch paths for all eight providers.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="assets/inner.css">
+  <link rel="stylesheet" href="assets/side.css">
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="index.html">Home</a><a href="primer.html">Primer</a><a href="compare.html">Compare</a><a href="software.html" aria-current="page">Software</a></nav>
+      <a class="btn top__cta" href="index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="providers/nvidia.html"><span class="side__logo"><img src="assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="providers/amd.html"><span class="side__logo"><img src="assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="providers/google-tpu.html"><span class="side__logo"><img src="assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="providers/aws.html"><span class="side__logo"><img src="assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="providers/microsoft-maia.html"><span class="side__logo"><img src="assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="providers/qualcomm.html"><span class="side__logo"><img src="assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="providers/cerebras.html"><span class="side__logo"><img src="assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="providers/groq.html"><span class="side__logo"><img src="assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <section>
+      <h1>The shared software layer</h1>
+      <p class="lede">Hardware specs only matter if your model's kernels compile and run well. The gap between software stacks is wider than the gap in silicon.</p>
+    </section>
+
+    <section>
+      <h2>The moat versus open standards</h2>
+      <p>CUDA has nearly two decades of libraries, tooling and developer habit behind it. Everyone else is trying to make the hardware underneath irrelevant, either by cloning the CUDA experience (AMD's HIP) or by pushing the abstraction up to the framework.</p>
+    </section>
+
+    <section>
+      <h2>The portability layer</h2>
+      <div class="stack">
+        <div class="layer"><span class="name">Framework</span><span><strong>PyTorch 2.x / <code>torch.compile</code></strong>: the common front end; every vendor here offers a PyTorch path.</span></div>
+        <div class="layer"><span class="name">Serving</span><span><strong>vLLM, SGLang</strong>: open inference servers that vendors now target directly.</span></div>
+        <div class="layer"><span class="name">Kernels</span><span><strong>Triton</strong>: write custom kernels once, compile for several back ends.</span></div>
+        <div class="layer"><span class="name">Compiler</span><span><strong>MLIR</strong>: the infrastructure under most vendor compilers.</span></div>
+        <div class="layer"><span class="name">Hardware</span><span>Vendor-native stacks below (see the matrix).</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Summary matrix</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Provider</th><th>Native stack</th><th>PyTorch path</th><th>Custom kernels</th><th>Open or closed</th></tr></thead>
+          <tbody>
+            <tr><td><a href="providers/nvidia.html">Nvidia</a></td><td>CUDA, CUDA-X, TensorRT-LLM, Dynamo, NIM</td><td>Native</td><td>CUDA</td><td>Mostly proprietary</td></tr>
+            <tr><td><a href="providers/amd.html">AMD</a></td><td>ROCm, HIP, MIGraphX, Hyperloom</td><td>Native via ROCm</td><td>HIP, Triton</td><td>Open source</td></tr>
+            <tr><td><a href="providers/google-tpu.html">Google</a></td><td>JAX, XLA, Pathways</td><td>TorchTPU</td><td>Pallas</td><td>Largely open, cloud only</td></tr>
+            <tr><td><a href="providers/aws.html">AWS</a></td><td>Neuron SDK</td><td>Native via Neuron</td><td>NKI</td><td>SDK open, cloud only</td></tr>
+            <tr><td><a href="providers/microsoft-maia.html">Microsoft</a></td><td>Maia SDK</td><td>Maia PyTorch integration</td><td>Triton, NPL</td><td>Preview, Azure only</td></tr>
+            <tr><td><a href="providers/qualcomm.html">Qualcomm</a></td><td>AI Inference Suite, Efficient Transformers</td><td>Supported</td><td>Not disclosed</td><td>Mixed</td></tr>
+            <tr><td><a href="providers/cerebras.html">Cerebras</a></td><td>Cerebras Inference API</td><td>Via API</td><td>Not exposed</td><td>API only</td></tr>
+            <tr><td><a href="providers/groq.html">Groq</a></td><td>Groq Compiler, GroqWare, GroqCloud</td><td>Via API</td><td>Not exposed</td><td>API only</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TODO: interactive version — click a framework to highlight which providers support it -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap"><p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="assets/js/main.js"></script>
+<script src="assets/js/glossary.js" defer></script>
+</body>
+</html>

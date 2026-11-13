@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Qualcomm Dragonfly AI250: compute under the memory | AI Accelerators 101</title>
+  <meta name="description" content="How Qualcomm's inference-only Dragonfly AI250 rack puts compute logic underneath the memory, with 768 GB per card and 56 cards per rack; samples in H1 2027.">
+  <meta property="og:title" content="Qualcomm Dragonfly AI250: compute under the memory">
+  <meta property="og:description" content="How Qualcomm's inference-only Dragonfly AI250 rack puts compute logic underneath the memory, with 768 GB per card and 56 cards per rack; samples in H1 2027.">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="../assets/inner.css">
+  <link rel="stylesheet" href="../assets/side.css">
+  <style>
+    /* qualcomm.html only */
+    /* Headings re-levelled for a clean outline (rack column h4 -> h3, detail h5 -> h4); same look as before. */
+    .rack-col h3 { margin: 12px 0 6px; font: 500 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .rack-col h3:first-child { margin-top: 0; }
+    .part-detail h4 { font: 600 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 8px; }
+    .part-detail .why + h4, .part-detail .stats + .detail-split h4 { margin-top: 12px; }
+    /* No violet: compute blocks use the accelerator green. */
+    .package .part, .package .part[data-role="compute"], .part-detail[data-role="compute"] { --part-color: var(--r-gpu); }
+    /* Tabs stick below the fixed header (and the provider row under 1024px). */
+    .tabs { top: calc(var(--top-h) + var(--side-row, 0px) + 8px); }
+    /* Detail stats wrap to the column width instead of a fixed four. */
+    .part-detail .stats { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+    .explorer > * { min-width: 0; }
+    #tab-sw .stats { margin-top: 20px; }
+    #tab-sw .note { margin-top: 16px; }
+    #tab-sw .legend { margin-top: 12px; }
+    /* Chip diagram over its details until the column is wide enough for both. */
+    @media (max-width: 1279px) {
+      .explorer.die-layout { grid-template-columns: minmax(0, 1fr); }
+      .die-layout .detail-col { position: static; max-height: none; overflow: visible; min-height: 0; }
+    }
+    @media (max-width: 860px) { .explorer { grid-template-columns: minmax(0, 1fr); } }
+    .beyond.qc-one { grid-template-columns: minmax(0, 1fr); }
+    /* AI250 package schematic */
+    .package.qc-pkg { min-width: 0; grid-template-columns: 120px minmax(0, 1fr) 120px; border-color: var(--camp-asic); background: #111418; box-shadow: none; }
+    .qc-pkg .a-core, .qc-pkg .a-iodB { grid-template-columns: minmax(0, 1fr); }
+    .qc-pkg .die-label { color: color-mix(in srgb, var(--camp-asic) 55%, #fff); }
+    .qc-pkg .part[data-part="soc"] { min-height: 190px; }
+    .qc-pkg .part[data-part="dram"] { min-height: 120px; }
+    .qc-pkg .part[data-part="base"] { min-height: 70px; }
+    @media (max-width: 640px) { .package.qc-pkg { grid-template-columns: 88px minmax(0, 1fr) 88px; padding: 6px; } }
+  </style>
+</head>
+<body class="has-side">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="../index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="../index.html">Home</a><a href="../primer.html">Primer</a><a href="../compare.html">Compare</a><a href="../software.html">Software</a></nav>
+      <a class="btn top__cta" href="../index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="../providers/nvidia.html"><span class="side__logo"><img src="../assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="../providers/amd.html"><span class="side__logo"><img src="../assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="../providers/google-tpu.html"><span class="side__logo"><img src="../assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="../providers/aws.html"><span class="side__logo"><img src="../assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="../providers/microsoft-maia.html"><span class="side__logo"><img src="../assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="../providers/qualcomm.html" aria-current="page"><span class="side__logo"><img src="../assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="../providers/cerebras.html"><span class="side__logo"><img src="../assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="../providers/groq.html"><span class="side__logo"><img src="../assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <!-- Block 1: Available series -->
+    <section class="provider-hero">
+      <span class="camp camp-spec">Specialist</span>
+      <h1>Qualcomm: <span class="grad-text">Dragonfly AI250 (HBC)</span></h1>
+      <p class="lede">An inference-only rack that puts compute logic underneath the memory, so less data has to travel. The AI250 is not on sale yet: it samples in the first half of 2027. The AI200, which uses ordinary LPDDR memory, is the rack Qualcomm is targeting for customers in 2026.</p>
+      <div class="timeline" role="group" aria-label="Available series">
+        <span class="gen">Cloud AI 100</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">Cloud AI 100 Ultra</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">Dragonfly AI200 (2026)</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen latest">Dragonfly AI250 (samples H1 2027)</span>
+      </div>
+    </section>
+
+    <!-- Block 2: Latest flagship at a glance -->
+    <section>
+      <div class="stats">
+        <div class="stat"><span class="v">768 GB</span><span class="l">memory per AI250 card (LPDDR)</span></div>
+        <div class="stat"><span class="v">133 TB/s</span><span class="l">"effective" bandwidth per card (see Claims)</span></div>
+        <div class="stat"><span class="v">56 cards</span><span class="l">per rack, 43 TB memory in total</span></div>
+        <div class="stat"><span class="v">H1 2027</span><span class="l">AI250 samples; release in 2027</span></div>
+      </div>
+    </section>
+
+    <!-- Blocks 3–6 as tabs -->
+    <section>
+      <div class="tabs" role="tablist" aria-label="AI250 sections">
+        <button role="tab" aria-selected="true"  aria-controls="tab-hw" id="tab-hw-btn">Inside the rack</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-chip" id="tab-chip-btn">The chip</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-sw" id="tab-sw-btn">Software</button>
+        <button role="tab" aria-selected="false" aria-controls="tab-claims" id="tab-claims-btn">Claims</button>
+      </div>
+
+      <!-- ===================== Block 4: Hardware ecosystem ===================== -->
+      <div class="tab-panel" id="tab-hw" role="tabpanel" aria-labelledby="tab-hw-btn">
+        <div class="section-head">
+          <h2>Take the rack apart</h2>
+          <p>Click a component to learn why it's special. Tap <b role="img" aria-label="the i button">ⓘ</b> to learn what that kind of part is.</p>
+        </div>
+        <p class="legend">Figures are Qualcomm's own unless tagged <span class="tag tag-verify">PRESS</span> (reported by trade press, not confirmed by Qualcomm). Qualcomm has published little about the rack's insides, so some parts say "not published".</p>
+
+        <div data-explorer data-noun="components of the rack">
+          <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer">
+            <!-- ---------- Left: the rack ---------- -->
+            <div class="rack-col">
+              <h3>The rack · Dragonfly AI250 rack (liquid-cooled)</h3>
+              <div class="rack-frame">
+                <div class="part" data-part="power" data-role="power">
+                  <button class="part-btn"><span class="n">Power &amp; liquid cooling</span><span class="s">140 kW · direct liquid cooling</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="qc-concept-cooling" aria-label="What is rack power and liquid cooling?">i</button>
+                </div>
+                <div class="part" data-part="slots" data-role="tray">
+                  <button class="part-btn"><span class="n">Card slots ×56</span><span class="s">one AI250 card in each</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="qc-concept-slots" aria-label="What is an accelerator card in a rack?">i</button>
+                </div>
+                <div class="part" data-part="scaleup" data-role="net">
+                  <button class="part-btn"><span class="n">Scale-up links</span><span class="s">PCIe, inside the rack</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+                  <button class="info-btn" popovertarget="qc-concept-scaleup" aria-label="What is a scale-up network?">i</button>
+                </div>
+              </div>
+
+              <h3>On and around each card</h3>
+              <div class="tray-zoom">
+                <div class="part" data-part="card" data-role="gpu">
+                  <button class="part-btn"><span class="n">AI250 card</span><span class="s">inference-only</span></button>
+                  <button class="info-btn" popovertarget="qc-concept-inferonly" aria-label="What is an inference-only accelerator?">i</button>
+                </div>
+                <div class="part" data-part="cpu" data-role="cpu">
+                  <button class="part-btn"><span class="n">Host CPU</span><span class="s">not published</span></button>
+                  <button class="info-btn" popovertarget="qc-concept-cpu" aria-label="What is a host CPU?">i</button>
+                </div>
+                <div class="part" data-part="prefill" data-role="gpu">
+                  <button class="part-btn"><span class="n">Prefill partner</span><span class="s">GPUs or other Qualcomm chips</span></button>
+                  <button class="info-btn" popovertarget="qc-concept-prefill" aria-label="What is disaggregated serving?">i</button>
+                </div>
+              </div>
+
+              <h3>Beyond the rack</h3>
+              <div class="beyond qc-one">
+                <div class="part" data-part="scaleout" data-role="net">
+                  <button class="part-btn"><span class="n">Scale-out: Ethernet</span><span class="s">Links racks into clusters</span></button>
+                  <button class="info-btn" popovertarget="qc-concept-scaleout" aria-label="What is a scale-out network?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ---------- Right: detail panels ---------- -->
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">👈</div>
+                <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="power" data-role="power" hidden>
+                <span class="role">Rack infrastructure <button class="info-btn inline" popovertarget="qc-concept-cooling" aria-label="What is liquid cooling?">i</button></span>
+                <h3>Power &amp; liquid cooling</h3>
+                <div class="count">Direct liquid cooling, as on the AI200 rack</div>
+                <p class="why"><strong>Why it's special:</strong> the rack's power budget has been trimmed. Qualcomm's current AI250 page lists 140 kW; at the October 2025 launch, the AI200 and AI250 racks were quoted at 160 kW. Press coverage put that near an Nvidia NVL72 rack, so Qualcomm is not claiming a small power draw per rack, only more memory work per watt.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">140 kW</span><span class="l">rack power, AI250 page</span></div>
+                  <div class="stat"><span class="v">160 kW</span><span class="l">rack power at 2025 launch</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">≤2.5 kW</span><span class="l">per card slot (derived: 140 kW ÷ 56, includes everything else)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Carries heat away from the cards with liquid, not just fans.</li>
+                      <li>Qualcomm hasn't said why the figure fell from 160 kW to 140 kW.</li>
+                      <li>Busbar, coolant flow and rack width: not published.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="slots">Card slots</button><button data-goto="card">AI250 card</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="slots" data-role="tray" hidden>
+                <span class="role">Building block <button class="info-btn inline" popovertarget="qc-concept-slots" aria-label="What is an accelerator card in a rack?">i</button></span>
+                <h3>Card slots</h3>
+                <div class="count">×56 cards per rack · tray layout not published</div>
+                <p class="why"><strong>Why it's special:</strong> Qualcomm sells a whole rack, not a loose card. The rack-level numbers are mostly the card numbers multiplied by 56, so memory is the headline: 43 TB in one rack.</p>
+                <h4>Key numbers (per rack)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">56</span><span class="l">AI250 cards</span></div>
+                  <div class="stat"><span class="v">43 TB</span><span class="l">memory (derived: 56 × 768 GB = 43,008 GB)</span></div>
+                  <div class="stat"><span class="v">7.455 PB/s</span><span class="l">"effective" bandwidth (derived: 56 × 133 ≈ 7.4)</span></div>
+                  <div class="stat"><span class="v">38.6 TB</span><span class="l">older memory figure, since replaced</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Holds the cards, each with its own 768 GB of memory.</li>
+                      <li>How many cards sit on each tray, and the board design, are not published.</li>
+                      <li>Press coverage once quoted 6.4 PB/s for another configuration <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="power">Power &amp; cooling</button><button data-goto="scaleup">Scale-up links</button><button data-goto="card">AI250 card</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="scaleup" data-role="net" hidden>
+                <span class="role">Scale-up network <button class="info-btn inline" popovertarget="qc-concept-scaleup" aria-label="What is a scale-up network?">i</button></span>
+                <h3>Scale-up links (PCIe)</h3>
+                <div class="count">Inside the rack · launch material said PCIe <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special (and unclear):</strong> rivals use proprietary or purpose-built fabrics such as NVLink or UALink. Qualcomm's launch material named plain PCIe for scale-up. A reviewer noted its role in scale-up is still unclear, and Qualcomm has given no bandwidth. Its next generation, HBC Gen 2, is said to add the ESUN and UALink fabrics <span class="tag tag-verify">PRESS</span>.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">PCIe</span><span class="l">scale-up link type</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">Not published</span><span class="l">bandwidth per card</span></div>
+                  <div class="stat"><span class="v">Not published</span><span class="l">PCIe generation and switch chips</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Lets cards in one rack exchange data when a model is split across them.</li>
+                      <li>A comparison with NVLink or UALink racks isn't possible until the numbers appear.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="card">AI250 card</button><button data-goto="slots">Card slots</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="card" data-role="gpu" hidden>
+                <span class="role">Accelerator <button class="info-btn inline" popovertarget="qc-concept-inferonly" aria-label="What is an inference-only accelerator?">i</button></span>
+                <h3>Dragonfly AI250 card</h3>
+                <div class="count">×56 per rack · first-generation HBC · inference only</div>
+                <p class="why"><strong>Why it's special:</strong> memory work is moved into the memory stack. The card has 768 GB, the same capacity as the AI200, but Qualcomm claims 18× the "effective" bandwidth. Qualcomm has not published the card's compute speed (FP8, FP4 or INT8). Open "The chip" tab to see how the stack works.</p>
+                <h4>Key numbers (per card)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">768 GB</span><span class="l">memory (LPDDR-based)</span></div>
+                  <div class="stat"><span class="v">133 TB/s</span><span class="l">effective bandwidth</span></div>
+                  <div class="stat"><span class="v">18×</span><span class="l">vs AI200, effective</span></div>
+                  <div class="stat"><span class="v">Not published</span><span class="l">FP8 / FP4 / INT8 compute</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Runs trained models to answer requests. It is not meant for training.</li>
+                      <li>The first HBC chips passed lab tests in November 2026, and a data-centre product using HBC has been taped out <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>The 133 TB/s is for the whole card, not one memory stack <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="scaleup">PCIe scale-up</button><button data-goto="cpu">Host CPU</button><button data-goto="scaleout">Ethernet</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="cpu" data-role="cpu" hidden>
+                <span class="role">Host CPU <button class="info-btn inline" popovertarget="qc-concept-cpu" aria-label="What is a host CPU?">i</button></span>
+                <h3>Host CPU: not published</h3>
+                <div class="count">Qualcomm has not named the CPU in AI200 or AI250 racks</div>
+                <p class="why"><strong>Why it's special:</strong> Qualcomm is also building its own server CPU, the Dragonfly C1000, but it arrives too late for these racks. Launch coverage noted that an earlier Humain agreement mentioned Qualcomm CPUs, while the AI200 and AI250 announcement did not confirm one in the racks <span class="tag tag-verify">PRESS</span>.</p>
+                <h4>Key numbers (C1000, the future CPU)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">250+</span><span class="l">custom Oryon cores</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">~5 GHz</span><span class="l">core clock</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">Gen7</span><span class="l">PCIe, plus CXL</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">2027 / 2028</span><span class="l">samples / launch (Meta first)</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>In every rack, some host CPU boots the system and feeds the cards, but which one isn't stated.</li>
+                      <li>The C1000 is described as sitting alongside Qualcomm's accelerators; Meta has agreed to use it, with production in H2 2028.</li>
+                      <li>Claimed 2× performance per watt <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="card">AI250 card</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="prefill" data-role="gpu" hidden>
+                <span class="role">Serving partner <button class="info-btn inline" popovertarget="qc-concept-prefill" aria-label="What is disaggregated serving?">i</button></span>
+                <h3>Prefill partner (disaggregated serving)</h3>
+                <div class="count">Optional · GPUs or other Qualcomm parts <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> Qualcomm is aiming the AI250 at <em>decode</em>, the memory-hungry step where a model writes its answer one token at a time. The compute-heavy <em>prefill</em> step, which reads the prompt, can run on other chips. Qualcomm says HBC suits decode, not prefill, partly because compute under DRAM has thermal limits <span class="tag tag-verify">PRESS</span>.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Decode</span><span class="l">the job HBC targets</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">Not published</span><span class="l">named prefill chip, or ratio of cards</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>The AI250 can run on its own or in a split setup.</li>
+                      <li>Qualcomm lists disaggregated serving among the techniques its software supports.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="card">AI250 card</button><button data-goto="scaleout">Ethernet</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="scaleout" data-role="net" hidden>
+                <span class="role">Scale-out network <button class="info-btn inline" popovertarget="qc-concept-scaleout" aria-label="What is a scale-out network?">i</button></span>
+                <h3>Scale-out: Ethernet</h3>
+                <div class="count">Between racks · NICs and switches not published</div>
+                <p class="why"><strong>Why it's special:</strong> racks connect over standard Ethernet <span class="tag tag-verify">PRESS</span>. Qualcomm bought connectivity specialist Alphawave, completed at the end of 2025, for the fast links future generations need. It has not said which network cards or switches go with the AI250.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Ethernet</span><span class="l">scale-out link type</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">Not published</span><span class="l">bandwidth per card</span></div>
+                  <div class="stat"><span class="v">200 MW</span><span class="l">Humain order, AI200 and AI250, from 2026</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>Who is building on it</h4>
+                    <ul>
+                      <li>Humain (Saudi Arabia) is the launch customer for 200 MW of AI200 and AI250 racks.</li>
+                      <li>Meta is a named customer for the C1000 CPU, not for the racks.</li>
+                      <li>I found no confirmation of a completed AI250 deployment.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="card">AI250 card</button><button data-goto="prefill">Prefill partner</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards (ⓘ) ===================== -->
+          <div class="concept" id="qc-concept-cooling" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Liquid cooling</h4></div>
+            <button class="close" popovertarget="qc-concept-cooling" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>A rack that draws 140 kW turns nearly all of it into heat. <b>Direct liquid cooling</b> pumps coolant through plates on the chips, which removes heat far better than air.</p>
+              <div class="analogy"><b>Analogy:</b> a car engine. A lawnmower can be air-cooled; a racing engine needs a radiator.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="qc-concept-slots" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Accelerator card in a rack</h4></div>
+            <button class="close" popovertarget="qc-concept-slots" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>An accelerator card is a plug-in board carrying the AI chip and its memory. A rack holds dozens of them and is sold as one system.</p>
+              <div class="analogy"><b>Analogy:</b> books on a shelf. The rack is the shelf and each card is a book you can swap out.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="qc-concept-inferonly" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Inference-only accelerator</h4></div>
+            <button class="close" popovertarget="qc-concept-inferonly" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Training</b> teaches a model. <b>Inference</b> uses the finished model to answer requests. Inference mostly re-reads the model's weights from memory, so memory speed and size matter more than raw maths.</p>
+              <p>An inference-only chip skips the extras that training needs, and spends its effort on memory instead.</p>
+              <div class="analogy"><b>Analogy:</b> a library built for readers, not for authors. It needs many shelves close to the desks, not a printing press.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="qc-concept-scaleup" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Scale-up vs scale-out</h4></div>
+            <button class="close" popovertarget="qc-concept-scaleup" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Scale-up</b> links the cards inside one rack with very fast, low-delay connections, so a big model can be split across them. <b>PCIe</b> is the standard connection inside a computer; it is not built for AI racks, which is why people ask how well it works here.</p>
+              <p><b>Scale-out</b> connects whole racks to each other, here with Ethernet.</p>
+              <div class="analogy"><b>Analogy:</b> scale-up is talking across an open-plan room. Scale-out is a letter to another office.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="qc-concept-cpu" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a host CPU?</h4></div>
+            <button class="close" popovertarget="qc-concept-cpu" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Accelerators can't run an operating system. A <b>host CPU</b> boots the machine, loads data, sends work to the accelerators and handles everything that isn't matrix maths.</p>
+              <div class="analogy"><b>Analogy:</b> the head chef who reads the orders and hands tasks to the line cooks.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="qc-concept-prefill" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Prefill, decode and disaggregated serving</h4></div>
+            <button class="close" popovertarget="qc-concept-prefill" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Answering a prompt has two steps. <b>Prefill</b> reads the whole prompt at once and needs lots of maths. <b>Decode</b> writes the answer one token at a time and spends most of its time fetching weights from memory.</p>
+              <p><b>Disaggregated serving</b> runs each step on the hardware that suits it.</p>
+              <div class="analogy"><b>Analogy:</b> one cook preps all the ingredients (prefill) while another plates dishes one by one (decode).</div>
+            </div>
+          </div>
+
+          <div class="concept" id="qc-concept-scaleout" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a scale-out network?</h4></div>
+            <button class="close" popovertarget="qc-concept-scaleout" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>Scale-out</b> networks join racks so many of them can serve one huge workload. Ethernet is the ordinary data-centre network, and most vendors now offer AI-tuned versions.</p>
+              <div class="analogy"><b>Analogy:</b> the motorway between cities, while scale-up is the streets inside one city.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 3: The accelerator chip ===================== -->
+      <div class="tab-panel" id="tab-chip" role="tabpanel" aria-labelledby="tab-chip-btn" hidden>
+        <div class="section-head">
+          <h2>Inside the AI250: compute under the memory</h2>
+          <p>Click any block. Tap <b role="img" aria-label="the i button">ⓘ</b> to learn what that block is.</p>
+        </div>
+        <p class="legend">Simplified, illustrative schematic. It is not a die photo, not to scale, and Qualcomm hasn't published the layout or the number of stacks per card. Figures are Qualcomm's own unless tagged <span class="tag tag-verify">PRESS</span>.</p>
+
+        <div data-explorer data-noun="blocks on the chip">
+          <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+          <div class="explorer die-layout">
+            <div>
+              <div class="die-scroll">
+                <div class="package mi-pkg qc-pkg" role="group" aria-label="AI250 package schematic (illustrative)">
+                  <!-- Centre: link, PCIe, SoC, security -->
+                  <div class="io-row a-iodT">
+                    <div class="part" data-part="link" data-role="io">
+                      <button class="part-btn"><span class="n">Slower link</span><span class="s">results only</span></button>
+                      <button class="info-btn" popovertarget="qc-concept-memwall" aria-label="What is the memory wall?">i</button>
+                    </div>
+                    <div class="part" data-part="pcie" data-role="io">
+                      <button class="part-btn"><span class="n">PCIe</span><span class="s">host and scale-up</span></button>
+                      <button class="info-btn" popovertarget="qc-concept-scaleup" aria-label="What is scale-up?">i</button>
+                    </div>
+                  </div>
+                  <div class="core a-core">
+                    <div class="part" data-part="soc" data-role="compute">
+                      <button class="part-btn"><span class="n">AI250 SoC</span><span class="s">main compute die</span></button>
+                      <button class="info-btn" popovertarget="qc-concept-soc" aria-label="What is an accelerator SoC?">i</button>
+                    </div>
+                  </div>
+                  <div class="io-row a-iodB">
+                    <div class="part" data-part="sec" data-role="sec">
+                      <button class="part-btn"><span class="n">Security</span><span class="s">confidential computing</span></button>
+                      <button class="info-btn" popovertarget="qc-concept-conf" aria-label="What is confidential computing?">i</button>
+                    </div>
+                  </div>
+
+                  <!-- HBC stacks either side: DRAM on top, compute logic underneath -->
+                  <div class="hbm-col a-hbmL">
+                    <div class="die-label">HBC stack</div>
+                    <div class="part" data-part="dram" data-role="mem">
+                      <button class="part-btn"><span class="n">LPDDR5X DRAM layers</span></button>
+                      <button class="info-btn" popovertarget="qc-concept-stack" aria-label="What is a 3D stack?">i</button>
+                    </div>
+                    <div class="part" data-part="base" data-role="compute">
+                      <button class="part-btn"><span class="n">Base die</span><span class="s">near-memory compute</span></button>
+                      <button class="info-btn" popovertarget="qc-concept-memwall" aria-label="What is near-memory compute?">i</button>
+                    </div>
+                  </div>
+                  <div class="hbm-col a-hbmR">
+                    <div class="die-label">HBC stack</div>
+                    <div class="part" data-part="dram" data-role="mem"><button class="part-btn"><span class="n">LPDDR5X DRAM layers</span></button></div>
+                    <div class="part" data-part="base" data-role="compute"><button class="part-btn"><span class="n">Base die</span><span class="s">near-memory compute</span></button></div>
+                  </div>
+                </div>
+              </div>
+              <p class="die-caption">Illustrative: stack count per card is not published. In each stack the DRAM sits on top of the logic, bonded wafer to wafer <span class="tag tag-verify">PRESS</span>.</p>
+            </div>
+
+            <div class="detail-col">
+              <div class="card empty-detail">
+                <div class="big" aria-hidden="true">🔬</div>
+                <p><strong>Start with the stack.</strong><br>The yellow DRAM layers sit directly on top of the green base die.</p>
+              </div>
+
+              <article class="part-detail card" data-detail="dram" data-role="mem" hidden>
+                <span class="role">Memory <button class="info-btn inline" popovertarget="qc-concept-stack" aria-label="What is a 3D stack?">i</button></span>
+                <h3>LPDDR5X DRAM layers</h3>
+                <div class="count">768 GB per card · stacked on logic <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> HBM puts memory stacks <em>beside</em> the processor on an interposer, which is costly. HBC bonds ordinary low-power LPDDR layers <em>on top of</em> logic instead. The idea is large capacity, with no interposer needed. The design also keeps spare capacity and remaps around faulty memory cells <span class="tag tag-verify">PRESS</span>.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">768 GB</span><span class="l">per card, same as AI200</span></div>
+                  <div class="stat"><span class="v">2 layers</span><span class="l">in the lab test stack</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">Not confirmed</span><span class="l">layer count in production</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Holds the model's weights and working data.</li>
+                      <li>The layers connect down to the base die through tiny vertical wires (TSVs) <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>The lab test stack had fewer layers than production is meant to use.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="base">Base die</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="base" data-role="compute" hidden>
+                <span class="role">Near-memory compute <button class="info-btn inline" popovertarget="qc-concept-memwall" aria-label="What is near-memory compute?">i</button></span>
+                <h3>Base die (the HBC idea)</h3>
+                <div class="count">Active logic under the DRAM · Qualcomm: near-memory compute, not compute-in-memory</div>
+                <p class="why"><strong>Why it's special:</strong> the heaviest memory work, such as the bandwidth-hungry steps of decode, runs right under the DRAM. Only results leave the stack, so far less data has to cross to the main chip. That is where the "effective bandwidth" and energy gains come from.</p>
+                <h4>Key numbers (Qualcomm claims)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">18×</span><span class="l">effective bandwidth vs AI200 (plain LPDDR)</span></div>
+                  <div class="stat"><span class="v">&gt;5×</span><span class="l">bandwidth per watt vs HBM4 (projected spec)</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">10×+</span><span class="l">less energy moving data</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">Not published</span><span class="l">base-die compute speed</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Measured on early silicon in a San Diego lab using standard test equipment and random data, not a real AI model <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Qualcomm's earlier June target was up to 6× bandwidth per watt; the lab result was lower <span class="tag tag-verify">PRESS</span>.</li>
+                      <li>Comparisons are Qualcomm estimates adjusted to target conditions.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="dram">DRAM layers</button><button data-goto="link">Slower link</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="link" data-role="io" hidden>
+                <span class="role">Link <button class="info-btn inline" popovertarget="qc-concept-memwall" aria-label="What is the memory wall?">i</button></span>
+                <h3>Link from stack to SoC</h3>
+                <div class="count">Slower than the path inside the stack</div>
+                <p class="why"><strong>An honest trade-off:</strong> the connection between the main chip and the LPDDR is slower than the path inside the HBC stack. Qualcomm says that's fine because only results cross it. The catch: work that can't run in the base die has to use this slower link.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Not published</span><span class="l">link bandwidth</span></div>
+                  <div class="stat"><span class="v">Results only</span><span class="l">what crosses, per Qualcomm</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Carries each stack's results to the main compute die.</li>
+                      <li>Some steps may move from the base die to the SoC, depending on the implementation <span class="tag tag-verify">PRESS</span>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="base">Base die</button><button data-goto="soc">AI250 SoC</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="soc" data-role="compute" hidden>
+                <span class="role">Compute <button class="info-btn inline" popovertarget="qc-concept-soc" aria-label="What is an accelerator SoC?">i</button></span>
+                <h3>AI250 SoC</h3>
+                <div class="count">The larger compute die at the card's centre <span class="tag tag-verify">PRESS</span></div>
+                <p class="why"><strong>Why it's special:</strong> it does the heavy maths that the base dies don't. Qualcomm says it has far more TFLOPS than the HBC logic, but gives no figure. Its AI200 predecessor is built on Qualcomm's Hexagon NPU technology, the neural engine from its phone chips <span class="tag tag-verify">PRESS</span>.</p>
+                <h4>Key numbers (not published for AI250)</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Not published</span><span class="l">FP8 / FP4 / INT8 compute</span></div>
+                  <div class="stat"><span class="v">Not published</span><span class="l">process node, on-chip memory</span></div>
+                  <div class="stat"><span class="v">870 TOPS</span><span class="l">INT8 on the older Cloud AI 100 Ultra card (64 cores)</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Runs the compute-heavy steps and coordinates the stacks.</li>
+                      <li>The Cloud AI 100 Ultra figure shows the family's scale, not the AI250's speed.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="link">Link to stacks</button><button data-goto="pcie">PCIe</button><button data-goto="sec">Security</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="pcie" data-role="io" hidden>
+                <span class="role">I/O <button class="info-btn inline" popovertarget="qc-concept-scaleup" aria-label="What is scale-up?">i</button></span>
+                <h3>PCIe</h3>
+                <div class="count">Host and rack links · speed not published</div>
+                <p class="why"><strong>Why it matters:</strong> PCIe is the standard connection to the rest of the machine. Launch material said PCIe is used for scale-up inside the rack <span class="tag tag-verify">PRESS</span>. Which PCIe generation and how many lanes the AI250 uses is not published.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Not published</span><span class="l">PCIe generation and lanes</span></div>
+                  <div class="stat"><span class="v">PCIe 4.0 ×16</span><span class="l">on the older Cloud AI 100 Ultra</span><span class="tag tag-verify">PRESS</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Connects the card to its host CPU and, per launch coverage, to other cards.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="soc">AI250 SoC</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+              </article>
+
+              <article class="part-detail card" data-detail="sec" data-role="sec" hidden>
+                <span class="role">Security <button class="info-btn inline" popovertarget="qc-concept-conf" aria-label="What is confidential computing?">i</button></span>
+                <h3>Security (confidential computing)</h3>
+                <div class="count">Rack-level feature · where it lives on the chip is not published</div>
+                <p class="why"><strong>Why it matters:</strong> Qualcomm says the AI200 and AI250 racks support confidential computing <span class="tag tag-verify">PRESS</span>. That keeps customers' models and prompts protected even from the cloud operator. This block is drawn only to mark the feature; Qualcomm hasn't shown which part of the chip does it.</p>
+                <h4>Key numbers</h4>
+                <div class="stats">
+                  <div class="stat"><span class="v">Supported</span><span class="l">confidential computing, per launch</span><span class="tag tag-verify">PRESS</span></div>
+                  <div class="stat"><span class="v">Not published</span><span class="l">hardware design and certifications</span></div>
+                </div>
+                <div class="detail-split">
+                  <div>
+                    <h4>What it does here</h4>
+                    <ul>
+                      <li>Protects data while the AI model uses it.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Connects to</h4>
+                    <div class="links-to"><button data-goto="soc">AI250 SoC</button></div>
+                  </div>
+                </div>
+                <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- ===================== Concept cards for the chip (ⓘ) ===================== -->
+          <div class="concept" id="qc-concept-memwall" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Memory wall and near-memory compute</h4></div>
+            <button class="close" popovertarget="qc-concept-memwall" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Chips can do maths faster than memory can feed them. This gap is the <b>memory wall</b>, and for AI inference it often sets the speed limit.</p>
+              <p><b>Near-memory compute</b> puts some logic right beside the memory, so the data is processed on the spot and only the answer travels.</p>
+              <div class="analogy"><b>Analogy:</b> instead of carrying every book to a reader's desk, a clerk in the stacks looks things up and brings only the page you need.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="qc-concept-stack" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>LPDDR vs HBM, and 3D stacking</h4></div>
+            <button class="close" popovertarget="qc-concept-stack" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p><b>HBM</b> is very fast memory built from stacked chips that sit beside the processor, but it is expensive and capacity is limited. <b>LPDDR</b> is the lower-power memory used in phones: slower per chip, cheaper and plentiful.</p>
+              <p>HBC bonds LPDDR layers directly onto logic, joined by vertical wires called <b>TSVs</b>. Many wires in parallel give a wide data path without an interposer.</p>
+              <div class="analogy"><b>Analogy:</b> HBM is a car park beside the stadium. HBC is a stadium built on top of the car park.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="qc-concept-soc" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Accelerator SoC and NPU</h4></div>
+            <button class="close" popovertarget="qc-concept-soc" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>An <b>SoC</b> (system on chip) packs many functions onto one die. An <b>NPU</b> (neural processing unit) is a block built for AI maths. Qualcomm's Hexagon NPU powers the AI in its phone chips, and the data-centre line builds on that technology.</p>
+              <div class="analogy"><b>Analogy:</b> a specialist workshop built only for one trade, instead of a general-purpose garage.</div>
+            </div>
+          </div>
+
+          <div class="concept" id="qc-concept-conf" popover>
+            <div class="concept-head"><span class="eyebrow">Concept</span><h4>Confidential computing</h4></div>
+            <button class="close" popovertarget="qc-concept-conf" popovertargetaction="hide" aria-label="Close">×</button>
+            <div class="concept-body">
+              <p>Data is normally encrypted when stored and when sent, but not while in use. <b>Confidential computing</b> uses hardware to keep it protected even while the chip works on it, so other tenants and the host operator can't read it.</p>
+              <div class="analogy"><b>Analogy:</b> a sealed room where you work on a document: staff can hand you materials but can't look inside.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== Block 5: Software ecosystem ===================== -->
+      <div class="tab-panel" id="tab-sw" role="tabpanel" aria-labelledby="tab-sw-btn" hidden>
+        <h2>Qualcomm's software stack</h2>
+        <div class="stack">
+          <div class="layer"><span class="name">Apps</span><span><b>Qualcomm AI Inference Suite</b>: APIs, libraries and tools for running models in production · LangChain and CrewAI support</span></div>
+          <div class="layer"><span class="name">Serving</span><span>vLLM · inference-optimisation techniques including disaggregated serving</span></div>
+          <div class="layer"><span class="name">Frameworks</span><span>PyTorch and ONNX</span></div>
+          <div class="layer"><span class="name">Models</span><span><b>Efficient Transformers Library</b>: onboards Hugging Face models, with one-click deployment</span></div>
+          <div class="layer"><span class="name">Compiler</span><span><b>Modular</b> (Mojo language and MAX engine), now owned by Qualcomm: aimed at running one model across different chips</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="v">29 Jul 2026</span><span class="l">Modular acquisition completed</span></div>
+          <div class="stat"><span class="v">~$3.9B</span><span class="l">reported all-stock price (not disclosed by Qualcomm)</span><span class="tag tag-verify">PRESS</span></div>
+          <div class="stat"><span class="v">Mojo + MAX</span><span class="l">kept as distinct products</span></div>
+          <div class="stat"><span class="v">Not published</span><span class="l">AI250 support in MAX</span></div>
+        </div>
+        <p class="note"><strong>Why it matters:</strong> Nvidia's strength is CUDA, so a new chip is only as useful as the software that runs on it. Qualcomm's earlier AI 100 software was described as hard to use, and Modular is meant to fix that <span class="tag tag-verify">PRESS</span>. How much of the AI250 stack is built on Modular is not yet public. I could not confirm the framework and agent-library list from a Qualcomm page.</p>
+        <p><a href="../software.html">Compare with other vendors <span aria-hidden="true">→</span></a></p>
+      </div>
+
+      <!-- ===================== Block 6: Claims ===================== -->
+      <div class="tab-panel" id="tab-claims" role="tabpanel" aria-labelledby="tab-claims-btn" hidden>
+        <h2>Headline claims</h2>
+        <p class="legend">VENDOR means Qualcomm's own claim. PRESS means a Qualcomm claim as relayed by trade press. No independent benchmarks of the AI200 or AI250 were found.</p>
+        <div class="claims">
+          <div class="claim card"><span class="value">18×</span><span>effective memory bandwidth vs AI200</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">133 TB/s</span><span>effective bandwidth per card</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">7.455 PB/s</span><span>effective bandwidth per rack</span><span class="tag tag-vendor">VENDOR</span></div>
+          <div class="claim card"><span class="value">&gt;5×</span><span>bandwidth per watt vs HBM4</span><span class="tag tag-verify">PRESS</span></div>
+          <div class="claim card"><span class="value">10×+</span><span>less energy spent moving data</span><span class="tag tag-verify">PRESS</span></div>
+          <div class="claim card"><span class="value">43 TB</span><span>memory per rack</span><span class="tag tag-vendor">VENDOR</span></div>
+        </div>
+
+        <h3>"Effective bandwidth": read with care</h3>
+        <p><b>Raw bandwidth</b> is how many bytes per second the wires between memory and processor can carry. Nvidia's Rubin GPU has 288 GB of HBM4 at about 22 TB/s at launch (about 19.2 TB/s in later reports <span class="tag tag-verify">PRESS</span>). AMD's MI455X has 432 GB at 23.3 TB/s.</p>
+        <p><b>Effective bandwidth</b> is a different measure. Because the base die does work inside the stack, the main chip doesn't have to read all that data. Effective bandwidth is roughly what a conventional chip would have needed to do the same job. Press analysis describes it as bandwidth available to computation inside the stack <span class="tag tag-verify">PRESS</span>. It is not a speed of wires, so it can't be set beside HBM figures, and it only counts for work the base die can do.</p>
+        <ul>
+          <li>The 18× baseline is LPDDR5X designs (the AI200), not HBM. The efficiency claim against HBM4 uses a different baseline <span class="tag tag-verify">PRESS</span>.</li>
+          <li>It comes from a two-layer test stack with random data, scaled to target conditions, not a real model <span class="tag tag-verify">PRESS</span>.</li>
+          <li>The AI200's own figure, 414 TB/s across its 56 chips (about 7.4 TB/s per card, derived), was questioned by The Register: it would need a data bus of about 6,720 bits at 8,800 MT/s <span class="tag tag-verify">PRESS</span>. Qualcomm called it the physical bandwidth of the LPDDR interface and gave no detail.</li>
+          <li>Real speed is tokens per second and per dollar on a real model. Qualcomm has published neither for the AI250. Production yields and power are unconfirmed.</li>
+        </ul>
+
+        <h3>Where it sits in the family</h3>
+        <p>The Cloud AI 100 Ultra card (2023) has 128 GB of LPDDR4x at 548 GB/s and a 150 W budget <span class="tag tag-verify">PRESS</span>. The AI250 card has 6× the capacity (derived: 768 ÷ 128). The bandwidth jump can't be calculated fairly, because one figure is raw and the other effective.</p>
+
+        <h3>What's next</h3>
+        <p><b>AI300</b> brings the second-generation <b>HBC Gen 2</b>. Qualcomm targets up to 54× the AI200's effective bandwidth, with samples in 2028 (a roadmap goal). Gen 2 is reported to add the ESUN and UALink fabrics <span class="tag tag-verify">PRESS</span>. The <b>C1000</b> CPU (250+ Oryon cores, PCIe Gen7, CXL) samples in 2027; Meta is its first named customer, with production in H2 2028.</p>
+      </div>
+    </section>
+
+    <nav class="pager">
+      <a href="microsoft-maia.html"><span aria-hidden="true">←</span> Microsoft</a>
+      <a href="cerebras.html">Cerebras <span aria-hidden="true">→</span></a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">Sources:
+      <a href="https://www.qualcomm.com/data-center/products/qualcomm-dragonfly-ai250">Qualcomm: Dragonfly AI250</a> ·
+      <a href="https://www.nextplatform.com/ai/2026/11/02/qualcomm-has-eyes-on-the-ai-inference-datacenter-with-hbc-and-ai250/5306954">The Next Platform: HBC and AI250</a> ·
+      <a href="https://www.theregister.com/systems/2026/06/30/qualcomms-proposed-solution-to-catch-up-in-ai-infra-bury-the-compute-under-the-dram/5264071">The Register: compute under the DRAM</a> ·
+      <a href="https://nand-research.com/qualcomm-validates-hbc-silicon/">NAND Research: HBC silicon</a> ·
+      <a href="https://thenextweb.com/news/qualcomm-hbc-chips-validated-dragonfly-ai250">TNW: HBC lab tests</a> ·
+      <a href="https://www.servethehome.com/qualcomm-investor-day-2026-data-center-announcements-cpus-ai-accelerators-and-more/">ServeTheHome: investor day</a> ·
+      <a href="https://www.servethehome.com/qualcomm-announces-new-integrated-ai-racks-with-768gb-cards-and-a-200mw-ai-deal/">ServeTheHome: AI200/AI250 launch</a> ·
+      <a href="https://thenextweb.com/news/qualcomm-dragonfly-meta-ai-data-center-chips-modular">TNW: Dragonfly and Meta</a> ·
+      <a href="https://www.qualcomm.com/news/releases/2026/07/qualcomm-completes-acquisition-of-modular">Qualcomm: Modular completed</a> ·
+      <a href="https://www.ithome.com.tw/review/167450">ITHome: Cloud AI 100 Ultra</a>
+      <p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/rack-explorer.js"></script>
+<script src="../assets/js/glossary.js" defer></script>
+</body>
+</html>

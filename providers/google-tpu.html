@@ -1,0 +1,2338 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Google TPU 8t, 8i, 8tx and 8i Max: four chips taken apart | AI Accelerators 101</title>
+  <meta name="description" content="Take apart Google's eighth-generation TPUs, the 8t for training, the 8i for inference, the confidential 8tx and the two-chip 8i Max, from the pod down to the silicon, with every vendor claim labelled.">
+  <meta property="og:title" content="Google TPU 8t, 8i, 8tx and 8i Max: four chips taken apart">
+  <meta property="og:description" content="Google's eighth-generation TPUs explained for beginners: the systems, the chips, the software and the claims, with every vendor figure labelled.">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#111111">
+  <link rel="stylesheet" href="../assets/inner.css">
+  <link rel="stylesheet" href="../assets/side.css">
+  <style>
+    /* Google TPU page only: every rule is scoped to body.tpu8 */
+    /* dark/bronze theme: neutral rack, no violet chip blocks, dark ink on fills */
+    .tpu8 .rack-frame { background: linear-gradient(180deg, #1f1f1f, #171717); border-color: var(--border); box-shadow: none; }
+    .tpu8 .rack-frame .part-btn { background: var(--surface-2); border-color: #363636; color: var(--text); }
+    .tpu8 .rack-frame .part-btn .s { color: var(--muted); }
+    .tpu8 .rack-frame .part.active .part-btn { background: color-mix(in srgb, var(--part-color) 22%, var(--surface-2)); }
+    .tpu8 .package .part { --part-color: var(--r-tray); }
+    .tpu8 .package .part[data-role="compute"], .tpu8 .part-detail[data-role="compute"] { --part-color: var(--accent-2); }
+    .tpu8 .package.tpu-pkg { background: #141414; border-color: var(--camp-asic); box-shadow: none; }
+    .tpu8 .tpu-pkg .fcd { background: #191919; border-color: #3a3a3a; }
+    .tpu8 .tpu-pkg .fcd .die-label { color: #8ab4f8; }
+    .tpu8 .package .part-btn { background: repeating-linear-gradient(90deg, transparent 0 6px, rgb(255 255 255 / .035) 6px 7px), color-mix(in srgb, var(--part-color) 22%, #141414); color: var(--text); }
+    .tpu8 .package .part:hover .part-btn, .tpu8 .package .part.active .part-btn { background: color-mix(in srgb, var(--part-color) 45%, #141414); }
+    .tpu8 .package .part-btn .s { color: color-mix(in srgb, var(--part-color) 45%, #fff); }
+    .tpu8 .package .info-btn { background: rgb(0 0 0 / .45); }
+    .tpu8 .info-btn:hover, .tpu8 .info-btn:focus-visible { color: #111111; }
+    /* variant cards: the tag sits above the name instead of on top of it */
+    .tpu8 .variant-picker .vtag { position: static; align-self: flex-start; margin-bottom: 6px; color: #111111; }
+    .tpu8 .variant-picker .vn { line-height: 1.2; }
+    /* the chooser: four chip cards and the picked chip's figures as one unit. The picked card opens into the
+       panel below it like a folder tab, carries its role's colour and a check; the figures arrive with it. */
+    .tpu8 .chooser { --panel: #1f1f1f; --rest: #161616; --rest-line: #2c2c2c; }
+    .tpu8 .chooser [data-r="train"] { --role: var(--camp-asic); }
+    .tpu8 .chooser [data-r="inf"] { --role: var(--accent-2); }
+    .tpu8 .chooser [data-r="sec"] { --role: var(--r-power); }
+    .tpu8 .pick-h { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 14px; }
+    .tpu8 .pick-h b { font: 500 1.25rem/1.3 var(--display); letter-spacing: -.015em; color: var(--text); }
+    .tpu8 .pick-h span { font-size: .92rem; color: var(--muted); }
+    .tpu8 .pick-h kbd { margin-left: auto; font: 400 .74rem/1 var(--mono); color: #7a7a7a; }
+    .tpu8 .chooser .variant-picker { gap: 8px; margin: 0; }
+    .tpu8 .chooser .variant-picker button {
+      gap: 3px; min-height: 108px; padding: 16px 46px 16px 18px; justify-content: flex-start;
+      background: var(--rest); border: 1px solid var(--rest-line); border-radius: 14px; box-shadow: none;
+      transition: background-color .18s, border-color .18s, transform .14s cubic-bezier(.2,.7,.2,1);
+    }
+    .tpu8 .chooser .variant-picker .vn { font-size: 1.3rem; font-weight: 600; color: #bdbdbd; transition: color .18s; }
+    .tpu8 .chooser .variant-picker .vt { font-size: .84rem; color: #8a8a8a; }
+    .tpu8 .chooser .variant-picker .vtag { background: var(--role); opacity: .72; transition: opacity .18s; }
+    /* the radio mark: a ring at rest, the role's colour on hover, a filled check when picked */
+    .tpu8 .chooser .variant-picker button::after {
+      content: ""; position: absolute; top: 16px; right: 16px; width: 20px; height: 20px; box-sizing: border-box;
+      border-radius: 50%; border: 2px solid #4d4d4d; transition: border-color .18s, background-color .18s, transform .18s;
+    }
+    .tpu8 .chooser .variant-picker button:hover { background: #1c1c1c; border-color: #444; transform: translateY(-2px); }
+    .tpu8 .chooser .variant-picker button:hover .vn { color: var(--text); }
+    .tpu8 .chooser .variant-picker button:hover .vtag { opacity: 1; }
+    .tpu8 .chooser .variant-picker button:hover::after { border-color: var(--role); }
+    .tpu8 .chooser .variant-picker button:active { transform: translateY(0) scale(.985); }
+    .tpu8 .chooser .variant-picker button[aria-pressed="true"] {
+      background: var(--panel); border-color: var(--panel); box-shadow: inset 0 3px 0 var(--role); transform: none; cursor: default;
+    }
+    .tpu8 .chooser .variant-picker button[aria-pressed="true"] .vn { color: var(--text); }
+    .tpu8 .chooser .variant-picker button[aria-pressed="true"] .vtag { opacity: 1; }
+    .tpu8 .chooser .variant-picker button[aria-pressed="true"] .vt { color: #b5b5b5; }
+    .tpu8 .chooser .variant-picker button[aria-pressed="true"]::after {
+      border-color: var(--role); transform: scale(1.05);
+      background: var(--role) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-4.9' fill='none' stroke='%23111' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat;
+    }
+    .tpu8 .chooser .variant-picker button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+    /* the panel: the picked chip's figures, flat, divided by hairlines */
+    .tpu8 .chooser__panel { position: relative; margin-top: 8px; padding: 18px 22px 22px; border-radius: 16px; background: var(--panel); }
+    .tpu8 .glance-h { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; font: 500 .74rem/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: #8f8f8f; }
+    .tpu8 .glance-h i { width: 8px; height: 8px; border-radius: 50%; background: var(--role); }
+    .tpu8 .glance-h b { font-weight: 500; color: var(--text); }
+    .tpu8 .chooser .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+    .tpu8 .chooser .stat { background: none; border: 0; border-left: 1px solid #333; border-radius: 0; box-shadow: none; padding: 2px 20px 0; }
+    .tpu8 .chooser .stat::before { content: none; }
+    .tpu8 .chooser .stat:first-child { border-left: 0; padding-left: 0; }
+    .tpu8 .chooser .stat .v { font-size: 1.75rem; }
+    .tpu8 .chooser .stat .tag { top: 0; right: 12px; }
+    @keyframes tpu-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .tpu8 .chooser .stats:not([hidden]) .stat { animation: tpu-in .36s cubic-bezier(.2,.7,.2,1) both; }
+    .tpu8 .chooser .stats .stat:nth-child(2) { animation-delay: .05s; }
+    .tpu8 .chooser .stats .stat:nth-child(3) { animation-delay: .1s; }
+    .tpu8 .chooser .stats .stat:nth-child(4) { animation-delay: .15s; }
+    /* four across: the picked card runs into the panel (a bridge over the gap, a square corner at either end) */
+    @media (min-width: 721px) {
+      .tpu8 .chooser .variant-picker button[aria-pressed="true"] { border-radius: 14px 14px 0 0; }
+      .tpu8 .chooser .variant-picker button[aria-pressed="true"]::before { content: ""; position: absolute; left: -1px; right: -1px; bottom: -10px; height: 11px; background: var(--panel); }
+      .tpu8 .chooser:has([data-pick="8t"][aria-pressed="true"]) .chooser__panel { border-top-left-radius: 0; }
+      .tpu8 .chooser:has([data-pick="8i-max"][aria-pressed="true"]) .chooser__panel { border-top-right-radius: 0; }
+    }
+    @media (max-width: 720px) {
+      .tpu8 .pick-h kbd { display: none; }
+      .tpu8 .chooser .variant-picker button { min-height: 0; }
+      .tpu8 .chooser .variant-picker button[aria-pressed="true"] { box-shadow: inset 0 3px 0 var(--role), 0 0 0 1px var(--role); }
+      .tpu8 .chooser .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 0; }
+      .tpu8 .chooser .stat:nth-child(3) { border-left: 0; padding-left: 0; }
+      .tpu8 .chooser .stat .v { font-size: 1.4rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .tpu8 .chooser .variant-picker button, .tpu8 .chooser .variant-picker button::after { transition: none; transform: none !important; }
+      .tpu8 .chooser .stats .stat { animation: none !important; }
+    }
+    /* headings re-levelled for a clean outline, styled as before */
+    .tpu8 .rack-col h3 { margin: 12px 0 6px; font: 500 .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .tpu8 .rack-col h3:first-child { margin-top: 0; }
+    .tpu8 .part-detail h4 { font: 600 .78rem var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 8px; }
+    .tpu8 .part-detail .why + h4, .tpu8 .part-detail .stats + .detail-split h4 { margin-top: 12px; }
+    .tpu8 .sw-cards h4 { margin: 0 0 8px; font-size: 1.15rem; }
+    .tpu8 .beyond.one { grid-template-columns: 1fr; }
+    .tpu8 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    /* sticky bars clear the fixed header (and the provider row below 1024px) */
+    .tpu8 .tabbar { top: calc(var(--top-h) + var(--side-row, 0px) + 8px); }
+    .tpu8 .detail-col { top: calc(var(--top-h) + var(--side-row, 0px) + 76px); }
+    /* the content column is the viewport minus the provider bar: size the explorers to the column */
+    .tpu8 .detail-col { container-type: inline-size; }
+    @container (max-width: 440px) {
+      .tpu8 .part-detail .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .tpu8 .detail-split { grid-template-columns: 1fr; gap: 0; }
+    }
+    @media (min-width: 1024px) and (max-width: 1239px) { .tpu8 .explorer.die-layout { grid-template-columns: 1fr; } .tpu8 .die-layout .detail-col { position: static; max-height: none; overflow: visible; } }
+    @media (max-width: 560px) {
+      .tpu8 .tabs { border-radius: 18px; }
+      .tpu8 .tabs button { padding: 8px 12px; }
+      .tpu8 .package.mi-pkg { min-width: 0; grid-template-columns: 52px minmax(0, 1fr) 52px; }
+      .tpu8 .package .part-btn .n { font-size: .64rem; }
+    }
+  </style>
+</head>
+<body class="has-side tpu8">
+  <header class="top">
+    <div class="top__bar">
+      <a class="skip" href="#main">Skip to content</a>
+      <a class="top__logo" href="../index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21.5V12a9.5 9.5 0 0 1 19 0v9.5h-6V12a3.5 3.5 0 0 0-7 0v9.5z"/></svg>AI Accelerators 101</a>
+      <nav class="top__links" aria-label="Main"><a href="../index.html">Home</a><a href="../primer.html">Primer</a><a href="../compare.html">Compare</a><a href="../software.html">Software</a></nav>
+      <a class="btn top__cta" href="../index.html#racks">See all eight racks</a>
+    </div>
+  </header>
+
+  <nav class="side" aria-label="Providers">
+      <div class="side__group" data-camp="gpu">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Merchant GPUs <small>2</small></p>
+        <a class="side__p" href="../providers/nvidia.html"><span class="side__logo"><img src="../assets/icons/nvidia.svg" alt=""></span><b>Nvidia</b><span>Vera Rubin NVL72</span></a>
+        <a class="side__p" href="../providers/amd.html"><span class="side__logo"><img src="../assets/icons/amd.svg" alt=""></span><b>AMD</b><span>MI455X · Helios</span></a>
+      </div>
+      <div class="side__group" data-camp="asic">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Hyperscaler ASICs <small>3</small></p>
+        <a class="side__p" href="../providers/google-tpu.html" aria-current="page"><span class="side__logo"><img src="../assets/icons/google-icon.svg" alt=""></span><b>Google TPU</b><span>TPU 8t · 8i · 8tx</span></a>
+        <a class="side__p" href="../providers/aws.html"><span class="side__logo"><img src="../assets/icons/aws.svg" alt=""></span><b>AWS</b><span>Trainium3</span></a>
+        <a class="side__p" href="../providers/microsoft-maia.html"><span class="side__logo"><img src="../assets/icons/microsoft-icon.svg" alt=""></span><b>Microsoft</b><span>Maia 300</span></a>
+      </div>
+      <div class="side__group" data-camp="spec">
+        <p class="side__h"><i class="side__dot" aria-hidden="true"></i>Specialists <small>3</small></p>
+        <a class="side__p" href="../providers/qualcomm.html"><span class="side__logo"><img src="../assets/icons/qualcomm.svg" alt=""></span><b>Qualcomm</b><span>Dragonfly AI250</span></a>
+        <a class="side__p" href="../providers/cerebras.html"><span class="side__logo"><img src="../assets/icons/cerebras.svg" alt=""></span><b>Cerebras</b><span>WSE-3 Turbo · CS-4</span></a>
+        <a class="side__p" href="../providers/groq.html"><span class="side__logo"><img src="../assets/icons/groq.svg" alt=""></span><b>Groq</b><span>LPU · Groq 3</span></a>
+      </div>
+    </nav>
+
+  <main class="wrap" id="main">
+    <!-- Block 1: Available series + variant picker -->
+    <section class="provider-hero">
+      <span class="camp camp-asic">Hyperscaler ASIC</span>
+      <h1>Google: <span class="grad-text">TPU 8th generation</span></h1>
+      <p class="lede">For the first time, Google split a TPU generation into separate chips for separate jobs: one for training, one for inference, a confidential variant and a double-chip inference package. Pick one to explore; every tab below follows your choice.</p>
+      <div class="timeline" role="group" aria-label="Available series">
+        <span class="gen">TPU v4</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">v5e</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">v5p</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">v6e Trillium</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen">v7 Ironwood</span><span class="arrow" aria-hidden="true">→</span>
+        <span class="gen latest">TPU 8t · 8i · 8tx · 8i Max</span>
+      </div>
+
+    </section>
+
+    <!-- Block 2: Selected variant at a glance -->
+    <section class="chooser" aria-labelledby="pick-h">
+      <p class="pick-h" id="pick-h"><b>Choose a TPU 8 chip</b><span>Its figures open below, and every tab further down follows your pick.</span><kbd aria-hidden="true">← → to switch</kbd></p>
+      <div class="variant-picker" role="group" aria-labelledby="pick-h">
+        <button type="button" data-pick="8t" data-r="train"><span class="vtag">Training</span><span class="vn">TPU 8t</span><span class="vt">Frontier-scale training</span></button>
+        <button type="button" data-pick="8i" data-r="inf"><span class="vtag inf">Inference</span><span class="vn">TPU 8i</span><span class="vt">Real-time reasoning &amp; agents</span></button>
+        <button type="button" data-pick="8tx" data-r="sec"><span class="vtag sec">Confidential</span><span class="vn">TPU 8tx</span><span class="vt">Secure inference, small training</span></button>
+        <button type="button" data-pick="8i-max" data-r="inf"><span class="vtag inf">Inference</span><span class="vn">TPU 8i Max</span><span class="vt">Two 8i chips, one package</span></button>
+      </div>
+      <div class="chooser__panel" data-r="train">
+<p class="glance-h" aria-live="polite"><i aria-hidden="true"></i><b data-pick-name>TPU 8t</b> at a glance</p>
+<div class="stats" data-variant="8t" hidden>
+  <div class="stat"><span class="v">9,600</span><span class="l">TPU 8t chips in one superpod</span></div>
+  <div class="stat"><span class="v">121 EF</span><span class="l">FP4 compute per superpod</span></div>
+  <div class="stat"><span class="v">216 GB</span><span class="l">HBM per chip (~2 PB shared per superpod)</span></div>
+  <div class="stat"><span class="v">Nearly 3×</span><span class="l">compute per pod vs Ironwood (Google claim)</span></div>
+</div>
+<div class="stats" data-variant="8i" hidden>
+  <div class="stat"><span class="v">10.1 PF</span><span class="l">FP4 peak per chip</span></div>
+  <div class="stat"><span class="v">288 GB</span><span class="l">HBM per chip, at 8.6 TB/s</span></div>
+  <div class="stat"><span class="v">384 MB</span><span class="l">on-chip SRAM (3× Ironwood)</span></div>
+  <div class="stat"><span class="v">Up to 80%</span><span class="l">better performance per dollar vs Ironwood (Google claim)</span></div>
+</div>
+<div class="stats" data-variant="8tx" hidden>
+  <div class="stat"><span class="v">Same silicon</span><span class="l">as TPU 8t, with an AMD EPYC host</span></div>
+  <div class="stat"><span class="v">1,152</span><span class="l">chips per pod</span><span class="tag tag-verify">PRESS</span></div>
+  <div class="stat"><span class="v">Up to 2×</span><span class="l">lower network latency than TPU 8t (Google claim)</span></div>
+  <div class="stat"><span class="v">7 vs 16</span><span class="l">max hops: Boardfly vs a comparable 3D torus</span></div>
+</div>
+<div class="stats" data-variant="8i-max" hidden>
+  <div class="stat"><span class="v">2 × 8i</span><span class="l">chips in one package</span></div>
+  <div class="stat"><span class="v">≈20.2 PF</span><span class="l">FP4 peak, derived from Google's 2× compute claim</span></div>
+  <div class="stat"><span class="v">768 MB</span><span class="l">on-chip SRAM, derived from Google's 2× claim</span></div>
+  <div class="stat"><span class="v">≈17.2 TB/s</span><span class="l">HBM bandwidth, derived from Google's 2× claim</span></div>
+</div>
+      </div>
+    </section>
+
+    <!-- Blocks 3–6 as tabs -->
+    <section>
+      <div class="tabbar">
+        <div class="tabs" role="tablist" aria-label="Page sections">
+          <button type="button" role="tab" id="tab-hw-btn" aria-selected="true" aria-controls="tab-hw">Inside the rack</button>
+          <button type="button" role="tab" id="tab-chip-btn" aria-selected="false" aria-controls="tab-chip">The TPU</button>
+          <button type="button" role="tab" id="tab-sw-btn" aria-selected="false" aria-controls="tab-sw">Software</button>
+          <button type="button" role="tab" id="tab-claims-btn" aria-selected="false" aria-controls="tab-claims">Claims</button>
+        </div>
+        <label class="variant-select">Variant
+          <select data-variant-select aria-label="TPU 8 variant">
+            <option value="8t">TPU 8t</option>
+            <option value="8i">TPU 8i</option>
+            <option value="8tx">TPU 8tx</option>
+            <option value="8i-max">TPU 8i Max</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- ===================== Block 4: Hardware ecosystem ===================== -->
+      <div class="tab-panel" id="tab-hw" role="tabpanel" aria-labelledby="tab-hw-btn" tabindex="0">
+        <div class="section-head">
+          <h2>Take the system apart</h2>
+          <p>Click a component to learn why it's special. Tap <b><span aria-hidden="true">ⓘ</span><span class="vh">the i button</span></b> to learn what that kind of part is.</p>
+        </div>
+        <p class="legend">Figures are Google's own unless tagged <span class="tag tag-verify">PRESS</span> (reported by trade press, not confirmed by Google).</p>
+<div data-variant="8t" hidden>
+  <p class="variant-note">Shown: a TPU 8t superpod, 9,600 chips wired as a 3D torus. Google publishes no rack drawing, so the layout is simplified.</p>
+
+  <div data-explorer data-noun="components of the system">
+    <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+    <div class="explorer">
+      <div class="rack-col">
+        <h3>The superpod · 9,600 chips</h3>
+        <div class="rack-frame">
+          <div class="part" data-part="cooling" data-role="power">
+            <button class="part-btn"><span class="n">Liquid cooling</span><span class="s">4th generation</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-concept-cooling" aria-label="What is liquid cooling?">i</button>
+          </div>
+          <div class="part" data-part="tray" data-role="tray">
+            <button class="part-btn"><span class="n">Trays</span><span class="s">4 TPUs per tray</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-concept-pod" aria-label="What are pods and slices?">i</button>
+          </div>
+          <div class="part" data-part="ici" data-role="net">
+            <button class="part-btn"><span class="n">ICI: 3D torus</span><span class="s">Direct chip-to-chip links</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-concept-torus" aria-label="What is a 3D torus?">i</button>
+          </div>
+          <div class="part" data-part="ocs" data-role="net">
+            <button class="part-btn"><span class="n">Optical circuit switches</span><span class="s">Rewire around failures</span><span class="leds"><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-concept-ocs" aria-label="What is an optical circuit switch?">i</button>
+          </div>
+        </div>
+
+        <h3>Inside one tray</h3>
+        <div class="tray-zoom">
+          <div class="part" data-part="tpu" data-role="gpu">
+            <button class="part-btn"><span class="n">TPU 8t</span><span class="s">×4 per tray</span></button>
+            <button class="info-btn" popovertarget="g-concept-tpu" aria-label="What is a TPU?">i</button>
+          </div>
+          <div class="part" data-part="host" data-role="cpu">
+            <button class="part-btn"><span class="n">Axion host</span><span class="s">Google's Arm CPU</span></button>
+            <button class="info-btn" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button>
+          </div>
+        </div>
+
+        <h3>Beyond the superpod</h3>
+        <div class="beyond one">
+          <div class="part" data-part="virgo" data-role="net">
+            <button class="part-btn"><span class="n">Virgo scale-out fabric</span><span class="s">Links superpods and sites</span></button>
+            <button class="info-btn" popovertarget="g-concept-dcn" aria-label="What is a data-centre network?">i</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-col">
+        <div class="card empty-detail">
+          <div class="big" aria-hidden="true">👈</div>
+          <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+        </div>
+
+        <article class="part-detail card" data-detail="cooling" data-role="power" hidden>
+          <span class="role">Rack infrastructure <button class="info-btn inline" popovertarget="g-concept-cooling" aria-label="What is liquid cooling?">i</button></span>
+          <h3>Liquid cooling</h3>
+          <div class="count">4th-generation liquid cooling (Google)</div>
+          <p class="why"><strong>Why it's special:</strong> Google has liquid-cooled TPUs for years, and trade press reports that TPU 8t cools its optical parts with liquid for the first time <span class="tag tag-verify">PRESS</span>. Cooling the optics matters because there are so many of them in a 9,600-chip system.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">Up to 2×</span><span class="l">performance per watt vs Ironwood</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Pumps coolant through cold plates on the chips.</li>
+                <li>Rack power and process node are not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tray">Trays</button><button data-goto="tpu">TPU 8t</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="tray" data-role="tray" hidden>
+          <span class="role">Building block <button class="info-btn inline" popovertarget="g-concept-pod" aria-label="What are pods and slices?">i</button></span>
+          <h3>Trays and racks</h3>
+          <div class="count">4 TPUs per tray · 300 racks per superpod <span class="tag tag-verify">PRESS</span></div>
+          <p class="why"><strong>Why it matters:</strong> a superpod is a lot of identical, swappable pieces. Press reports 300 racks. Dividing 9,600 chips by 300 racks gives about 32 chips per rack (derived, not published). Google hasn't said whether the 64-chip 4×4×4 cubes used in Ironwood are still the building block.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">4</span><span class="l">TPUs per tray</span><span class="tag tag-verify">PRESS</span></div>
+            <div class="stat"><span class="v">300</span><span class="l">racks per superpod</span><span class="tag tag-verify">PRESS</span></div>
+            <div class="stat"><span class="v">~32</span><span class="l">chips per rack (derived)</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Holds the TPUs, their host and the cooling connections.</li>
+                <li>Google hasn't published rack power or a rack drawing.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tpu">TPU 8t</button><button data-goto="host">Axion host</button><button data-goto="ocs">Optical switches</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="ici" data-role="net" hidden>
+          <span class="role">Scale-up network <button class="info-btn inline" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button></span>
+          <h3>ICI: the 3D torus</h3>
+          <div class="count">Direct links between chips · 2× the scale-up bandwidth of Ironwood</div>
+          <p class="why"><strong>Why it's special:</strong> there are no switch chips between TPUs. Each chip links straight to its neighbours in a 3D torus, which suits training where chips mostly talk to nearby chips. Google says it doubled interchip bandwidth. It hasn't given the new absolute figure (Ironwood: 1,200 GB/s bidirectional over 6 links), so we don't guess one.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">2×</span><span class="l">scale-up bandwidth vs Ironwood</span></div>
+            <div class="stat"><span class="v">~2 PB</span><span class="l">shared HBM across the superpod</span></div>
+            <div class="stat"><span class="v">9,600</span><span class="l">chips in one torus</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Lets all 9,600 chips work as one machine. Press describes a "shared coherent memory space" <span class="tag tag-verify">PRESS</span>.</li>
+                <li>Reroutes automatically around faulty links.</li>
+                <li>Longest path in a comparable 3D torus: 16 hops (this is why 8tx uses a different layout).</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tpu">TPU 8t</button><button data-goto="ocs">Optical switches</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="ocs" data-role="net" hidden>
+          <span class="role">Optical switching <button class="info-btn inline" popovertarget="g-concept-ocs" aria-label="What is an optical circuit switch?">i</button></span>
+          <h3>Optical circuit switches</h3>
+          <div class="count">Reconfigure around failures automatically</div>
+          <p class="why"><strong>Why it's special:</strong> mirrors steer light, so the wiring of the superpod can change without touching a cable. When a chip or link fails, the system routes around it. Google's goodput target is above 97% <button class="info-btn inline" popovertarget="g-8t-concept-goodput" aria-label="What is goodput?">i</button>.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">&gt;97%</span><span class="l">goodput target</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Builds slices of any size and shape, and swaps in spare chips <span class="tag tag-verify">PRESS</span>.</li>
+                <li>Works with real-time telemetry across tens of thousands of chips.</li>
+                <li>Press also reports in-field testing of units in idle cycles <span class="tag tag-verify">PRESS</span>.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="ici">ICI torus</button><button data-goto="tray">Racks</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="tpu" data-role="gpu" hidden>
+          <span class="role">Accelerator <button class="info-btn inline" popovertarget="g-concept-tpu" aria-label="What is a TPU?">i</button></span>
+          <h3>TPU 8t</h3>
+          <div class="count">Announced 22 Apr 2026 · built for frontier-scale training, designed with Google DeepMind</div>
+          <p class="why"><strong>Why it's special:</strong> it trades memory speed for capacity and compute. HBM is 216 GB at 6,528 GB/s, against Ironwood's 192 GiB at 7,380 GB/s: more room, about 11.5% less bandwidth (derived). Native FP4 doubles MXU throughput. Don't set 12.6 PFLOPS FP4 against Ironwood's 4,614 TFLOPS FP8 as if equal: the formats differ <button class="info-btn inline" popovertarget="g-8t-concept-fp4" aria-label="What is FP4?">i</button>. Open "The TPU" tab for the blocks.</p>
+          <h4>Key numbers (per chip)</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">12.6 PF</span><span class="l">FP4 peak (FP8/BF16 not published)</span></div>
+            <div class="stat"><span class="v">216 GB</span><span class="l">HBM</span></div>
+            <div class="stat"><span class="v">6,528 GB/s</span><span class="l">memory bandwidth</span></div>
+            <div class="stat"><span class="v">128 MB</span><span class="l">on-chip SRAM (Vmem)</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Does the matrix maths, with SparseCores for embedding lookups and all-gather-style collectives.</li>
+                <li>TSMC builds it and Broadcom is the design partner <span class="tag tag-verify">PRESS</span>. Process node and power are not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="ici">ICI torus</button><button data-goto="host">Axion host</button><button data-goto="tray">Tray</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="host" data-role="cpu" hidden>
+          <span class="role">Host CPU <button class="info-btn inline" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button></span>
+          <h3>Axion host</h3>
+          <div class="count">Google's own Arm-based CPU · host ratio not published</div>
+          <p class="why"><strong>Why it's special:</strong> Google designs both the TPU and its host CPU, so the whole stack is its own. The 8tx variant swaps this host for an AMD EPYC for confidential computing; see the variant selector.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Boots the system, feeds data to the TPUs and runs the non-matrix work.</li>
+                <li>How many CPUs serve each tray hasn't been published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tpu">TPU 8t</button><button data-goto="virgo">Virgo fabric</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="virgo" data-role="net" hidden>
+          <span class="role">Scale-out network <button class="info-btn inline" popovertarget="g-concept-dcn" aria-label="What is a data-centre network?">i</button></span>
+          <h3>Virgo scale-out fabric</h3>
+          <div class="count">Google's dedicated data-centre fabric for TPU 8t</div>
+          <p class="why"><strong>Why it's special:</strong> Virgo is flat, two-layer and non-blocking, built from high-radix switches in several independent planes. Google says one fabric links 134,000 TPU 8t chips at up to 47 Pb/s of bisection bandwidth. With JAX and Pathways, more than a million TPUs across sites can form one training cluster.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">134,000</span><span class="l">chips in one fabric</span></div>
+            <div class="stat"><span class="v">47 Pb/s</span><span class="l">bisection bandwidth</span></div>
+            <div class="stat"><span class="v">Up to 4×</span><span class="l">raw network bandwidth vs previous gen</span></div>
+            <div class="stat"><span class="v">10×</span><span class="l">faster storage access</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Joins superpods, and storage, into larger clusters.</li>
+                <li>Storage gets its speed from TPUDirect RDMA, TPUDirect Storage and Managed Lustre 10T <button class="info-btn inline" popovertarget="g-8t-concept-tpudirect" aria-label="What is TPUDirect?">i</button>.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="host">Axion host</button><button data-goto="ocs">Optical switches</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</div>
+<div data-variant="8i" hidden>
+  <p class="variant-note">Shown: a TPU 8i Boardfly pod, built from boards of 4 chips, 8-board groups and 36 groups. Google hasn't published how many boards fit in one rack.</p>
+
+  <div data-explorer data-noun="components of the system">
+    <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+    <div class="explorer">
+      <!-- ---------- Left: the system ---------- -->
+      <div class="rack-col">
+        <h3>The building blocks · board, group, pod</h3>
+        <div class="rack-frame">
+          <div class="part" data-part="cooling" data-role="power">
+            <button class="part-btn"><span class="n">Power &amp; liquid cooling</span><span class="s">4th-generation liquid cooling</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-concept-cooling" aria-label="What is liquid cooling?">i</button>
+          </div>
+          <div class="part" data-part="board" data-role="tray">
+            <button class="part-btn"><span class="n">Board (tray)</span><span class="s">4 TPU 8i, fully connected</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-8i-concept-tray" aria-label="What is a board?">i</button>
+          </div>
+          <div class="part" data-part="group" data-role="net">
+            <button class="part-btn"><span class="n">Boardfly group</span><span class="s">8 boards · copper links</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-8i-concept-boardfly" aria-label="What is Boardfly?">i</button>
+          </div>
+        </div>
+
+        <h3>Inside one board</h3>
+        <div class="tray-zoom">
+          <div class="part" data-part="tpu" data-role="gpu">
+            <button class="part-btn"><span class="n">TPU 8i</span><span class="s">×4 per board</span></button>
+            <button class="info-btn" popovertarget="g-concept-tpu" aria-label="What is a TPU?">i</button>
+          </div>
+          <div class="part" data-part="host" data-role="cpu">
+            <button class="part-btn"><span class="n">Axion host CPU</span><span class="s">Google's Arm CPU</span></button>
+            <button class="info-btn" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button>
+          </div>
+        </div>
+
+        <h3>Beyond the group</h3>
+        <div class="beyond">
+          <div class="part" data-part="ocs" data-role="net">
+            <button class="part-btn"><span class="n">Optical circuit switches</span><span class="s">36 groups → one pod</span></button>
+            <button class="info-btn" popovertarget="g-concept-ocs" aria-label="What is an optical circuit switch?">i</button>
+          </div>
+          <div class="part" data-part="dcn" data-role="net">
+            <button class="part-btn"><span class="n">Virgo network</span><span class="s">Beyond the pod</span></button>
+            <button class="info-btn" popovertarget="g-concept-dcn" aria-label="What is a data-centre network?">i</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------- Right: detail panels ---------- -->
+      <div class="detail-col">
+        <div class="card empty-detail">
+          <div class="big" aria-hidden="true">👈</div>
+          <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+        </div>
+
+        <article class="part-detail card" data-detail="cooling" data-role="power" hidden>
+          <span class="role">System infrastructure <button class="info-btn inline" popovertarget="g-concept-cooling" aria-label="What is liquid cooling?">i</button></span>
+          <h3>Power &amp; liquid cooling</h3>
+          <div class="count">4th-generation liquid cooling (Google)</div>
+          <p class="why"><strong>Why it's special:</strong> Google has liquid-cooled TPUs since 2018, so this is a mature part of the design. Google also claims up to 2× the performance per watt of Ironwood, so each watt of power and cooling does more work. Google hasn't published rack power, coolant flow or the chip's power draw.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">4th gen</span><span class="l">liquid cooling</span></div>
+            <div class="stat"><span class="v">Up to 2×</span><span class="l">performance per watt vs Ironwood</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Carries heat away from the chips with coolant, not just fans.</li>
+                <li>Power per chip, per board and per rack: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="board">Board</button><button data-goto="tpu">TPU 8i</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="board" data-role="tray" hidden>
+          <span class="role">Building block <button class="info-btn inline" popovertarget="g-8i-concept-tray" aria-label="What is a board?">i</button></span>
+          <h3>Board (tray)</h3>
+          <div class="count">4 TPU 8i chips per board</div>
+          <p class="why"><strong>Why it's special:</strong> the four chips on a board are wired directly to each other, every chip to every other chip. Each board also has 12 external links to the rest of the group. This all-to-all start is the first layer of Boardfly.</p>
+          <h4>Key numbers (per board)</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">4</span><span class="l">TPU 8i chips, fully connected</span></div>
+            <div class="stat"><span class="v">12</span><span class="l">external links</span></div>
+            <div class="stat"><span class="v">≈40 PF</span><span class="l">FP4, derived: 4 × 10.1 PF</span></div>
+            <div class="stat"><span class="v">1,152 GB</span><span class="l">HBM, derived: 4 × 288 GB</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Keeps chip-to-chip traffic on a board to a single hop.</li>
+                <li>Google says physical CPU hosts per server doubled vs Ironwood. It hasn't published how many sit on each board or the exact ratio.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Look inside</h4>
+              <div class="links-to"><button data-goto="tpu">TPU 8i</button><button data-goto="host">Axion host</button><button data-goto="group">Boardfly group</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="group" data-role="net" hidden>
+          <span class="role">Scale-up network <button class="info-btn inline" popovertarget="g-8i-concept-boardfly" aria-label="What is Boardfly?">i</button></span>
+          <h3>Boardfly group</h3>
+          <div class="count">8 boards · 32 chips, derived: 8 × 4 · linked by copper</div>
+          <p class="why"><strong>Why it's special:</strong> A 3D torus is cheap but can need many hops. Boardfly links boards in a group fully, so any chip is at most 7 hops from any other in a pod. A 1,024-chip 8×8×16 torus needs up to 16. Google calls that a 56% cut in network diameter.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">7 hops</span><span class="l">maximum, chip to chip</span></div>
+            <div class="stat"><span class="v">16 hops</span><span class="l">maximum in a 1,024-chip 3D torus</span></div>
+            <div class="stat"><span class="v">−56%</span><span class="l">network diameter</span></div>
+            <div class="stat"><span class="v">Up to 50%</span><span class="l">better latency on communication-heavy work</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Suits mixture-of-experts models, where every chip may need to talk to every other.</li>
+                <li>Cuts inter-chip delays by up to half, Google says.</li>
+                <li>Uses ICI links at 19.2 Tb/s per chip, 2× the previous generation.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="board">Boards</button><button data-goto="ocs">Optical switches</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="tpu" data-role="gpu" hidden>
+          <span class="role">Accelerator <button class="info-btn inline" popovertarget="g-concept-tpu" aria-label="What is a TPU?">i</button></span>
+          <h3>TPU 8i</h3>
+          <div class="count">×4 per board · announced 22 April 2026 · for real-time reasoning and agents</div>
+          <p class="why"><strong>Why it's special:</strong> it is built for inference, not training. It has 288 GB of HBM and a large 384 MB of on-chip SRAM, so the KV cache of a long-context model can stay on the silicon. It drops Ironwood's SparseCores for a new engine that speeds up chip-to-chip collectives. Open "The TPU" tab to explore the blocks.</p>
+          <h4>Key numbers (per chip)</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">10.1 PF</span><span class="l">FP4 peak (FP8 not published)</span></div>
+            <div class="stat"><span class="v">288 GB</span><span class="l">HBM (Rubin: 288 GB; MI455X: 432 GB)</span></div>
+            <div class="stat"><span class="v">8,601 GB/s</span><span class="l">HBM bandwidth</span></div>
+            <div class="stat"><span class="v">384 MB</span><span class="l">SRAM (3× Ironwood)</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Runs inference: token generation, long chains of thought and agent loops.</li>
+                <li>Peak figures aren't directly comparable: Nvidia Rubin quotes 50 PF NVFP4 and AMD MI455X 40 PF MXFP4, and the FP4 formats differ.</li>
+                <li>Process node and power: not published. MediaTek reportedly co-designed it <span class="tag tag-verify">PRESS</span>.</li>
+                <li>Availability: Google said "later this year" in April and gave no date in November; Next Platform expects 2027 <span class="tag tag-verify">PRESS</span>.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="board">Board</button><button data-goto="host">Axion host</button><button data-goto="group">Boardfly group</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="host" data-role="cpu" hidden>
+          <span class="role">Host CPU <button class="info-btn inline" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button></span>
+          <h3>Axion host CPU</h3>
+          <div class="count">Google's own Arm-based CPU</div>
+          <p class="why"><strong>Why it's special:</strong> agents don't only run models. They call tools, run code and manage state, and that work lands on the CPU. Google says the number of physical CPU hosts per server doubled vs Ironwood, and it uses NUMA isolation. The exact ratio isn't published.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Boots the system and feeds the TPUs.</li>
+                <li>Runs the non-matrix work around agents.</li>
+                <li>Bare-metal access is offered, and vLLM and SGLang run natively.</li>
+                <li>Core count and CPU–TPU link speed: Google hasn't published them.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tpu">TPU 8i</button><button data-goto="dcn">Virgo network</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="ocs" data-role="net" hidden>
+          <span class="role">Pod network <button class="info-btn inline" popovertarget="g-concept-ocs" aria-label="What is an optical circuit switch?">i</button></span>
+          <h3>Optical circuit switches</h3>
+          <div class="count">36 groups joined into one pod</div>
+          <p class="why"><strong>Why it's special:</strong> light, not electronics, links the groups. The switches use mirrors to connect fibres directly, so they add little delay and power. Google's deep dive gives both "up to 1,024 active chips" and "up to 1,152" for the pod. 36 groups × 32 chips = 1,152, so the likely reading is 1,152 physical chips with up to 1,024 active.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">36</span><span class="l">groups per pod</span></div>
+            <div class="stat"><span class="v">1,152</span><span class="l">chips, physical (up to 1,024 active)</span></div>
+            <div class="stat"><span class="v">≈11.6 EF</span><span class="l">FP4, derived: 1,152 × 10.1 PF</span><span class="tag tag-verify">PRESS</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Joins the copper-linked groups into one pod.</li>
+                <li>Link counts per group: Google hasn't published them.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="group">Boardfly groups</button><button data-goto="dcn">Virgo network</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="dcn" data-role="net" hidden>
+          <span class="role">Data-centre network <button class="info-btn inline" popovertarget="g-concept-dcn" aria-label="What is a data-centre network?">i</button></span>
+          <h3>Virgo network</h3>
+          <div class="count">Beyond the pod · named in Google's April announcement</div>
+          <p class="why"><strong>Why it matters:</strong> a pod is the limit of fast chip-to-chip links. To reach users, storage and other pods, traffic leaves through Google's data-centre fabric, which the April post calls Virgo. Google hasn't published its bandwidth or design for TPU 8i.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Connects pods to each other and to the rest of the data centre.</li>
+                <li>Google hasn't said how many hosts or racks it serves.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="ocs">Pod</button><button data-goto="host">Axion host</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</div>
+<div data-variant="8tx" hidden>
+  <p class="variant-note">Shown: a TPU 8tx system, TPU 8t silicon with an AMD EPYC host and the Boardfly network. Google hasn't published a rack drawing, so the layout is simplified. The pod size of 1,152 chips is a press figure <span class="tag tag-verify">PRESS</span>.</p>
+
+  <div data-explorer data-noun="components of the system">
+    <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+    <div class="explorer">
+      <div class="rack-col">
+        <h3>The pod · 1,152 chips <span class="tag tag-verify">PRESS</span></h3>
+        <div class="rack-frame">
+          <div class="part" data-part="board" data-role="tray">
+            <button class="part-btn"><span class="n">Boards</span><span class="s">4 chips, fully connected</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-concept-pod" aria-label="What are pods and slices?">i</button>
+          </div>
+          <div class="part" data-part="boardfly" data-role="net">
+            <button class="part-btn"><span class="n">Boardfly network</span><span class="s">Max 7 hops</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-8i-concept-boardfly" aria-label="What is Boardfly?">i</button>
+          </div>
+          <div class="part" data-part="ocs" data-role="net">
+            <button class="part-btn"><span class="n">Optical circuit switches</span><span class="s">Link 36 groups</span><span class="leds"><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-concept-ocs" aria-label="What is an optical circuit switch?">i</button>
+          </div>
+        </div>
+
+        <h3>Inside one host system</h3>
+        <div class="tray-zoom">
+          <div class="part" data-part="tpu" data-role="gpu">
+            <button class="part-btn"><span class="n">TPU 8tx</span><span class="s">Same silicon as 8t</span></button>
+            <button class="info-btn" popovertarget="g-concept-tpu" aria-label="What is a TPU?">i</button>
+          </div>
+          <div class="part" data-part="host" data-role="cpu">
+            <button class="part-btn"><span class="n">AMD EPYC host</span><span class="s">5th Gen, not Axion</span></button>
+            <button class="info-btn" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button>
+          </div>
+          <div class="part" data-part="cc" data-role="cpu">
+            <button class="part-btn"><span class="n">Confidential compute</span><span class="s">Hardware-level, AMD SEV</span></button>
+            <button class="info-btn" popovertarget="g-concept-cc" aria-label="What is confidential computing?">i</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-col">
+        <div class="card empty-detail">
+          <div class="big" aria-hidden="true">👈</div>
+          <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+        </div>
+
+        <article class="part-detail card" data-detail="board" data-role="tray" hidden>
+          <span class="role">Building block <button class="info-btn inline" popovertarget="g-concept-pod" aria-label="What are pods and slices?">i</button></span>
+          <h3>Boards and pod</h3>
+          <div class="count">4 chips per board · 8 boards per group · 36 groups</div>
+          <p class="why"><strong>Why it matters:</strong> the pod is built from boards of 4 fully connected chips. 36 groups of 32 chips gives 1,152 chips, which matches the press-reported pod size <span class="tag tag-verify">PRESS</span>. The 4-chip and 8-board numbers come from the TPU 8i Boardfly design; Google hasn't published an 8tx-specific rack layout.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">1,152</span><span class="l">chips per pod</span><span class="tag tag-verify">PRESS</span></div>
+            <div class="stat"><span class="v">4</span><span class="l">chips per board</span></div>
+            <div class="stat"><span class="v">36 &times; 32</span><span class="l">groups &times; chips per group</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Aims at private fine-tuning, distillation, reinforcement learning for agents and secure agent execution, rather than frontier-scale training.</li>
+                <li>Price and availability are not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tpu">TPU 8tx</button><button data-goto="boardfly">Boardfly</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="boardfly" data-role="net" hidden>
+          <span class="role">Scale-up network <button class="info-btn inline" popovertarget="g-8i-concept-boardfly" aria-label="What is Boardfly?">i</button></span>
+          <h3>Boardfly network</h3>
+          <div class="count">Borrowed from TPU 8i · replaces 8t's 3D torus</div>
+          <p class="why"><strong>Why it's special:</strong> a torus is great for training but can need many hops. Boardfly connects chips so that any two are at most 7 hops apart, where a comparable 3D torus needs up to 16. Google says it gives up to 2&times; lower latency than TPU 8t with near-zero performance penalty. Press calls it a dragonfly-style design <span class="tag tag-verify">PRESS</span>.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">7 vs 16</span><span class="l">max hops: Boardfly vs a comparable 3D torus</span></div>
+            <div class="stat"><span class="v">Up to 2&times;</span><span class="l">lower latency than TPU 8t</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>4 chips on a board are fully connected.</li>
+                <li>8 boards in a group are fully connected by copper.</li>
+                <li>36 groups link through optical circuit switches.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="board">Boards</button><button data-goto="ocs">Optical switches</button><button data-goto="tpu">TPU 8tx</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="ocs" data-role="net" hidden>
+          <span class="role">Optical switching <button class="info-btn inline" popovertarget="g-concept-ocs" aria-label="What is an optical circuit switch?">i</button></span>
+          <h3>Optical circuit switches</h3>
+          <div class="count">Join the 36 groups</div>
+          <p class="why"><strong>Why it's special:</strong> optical switches steer light with mirrors, so the links between groups can change without re-cabling. Google uses them in both the Boardfly layout and the 8t torus. Whether 8tx pods rewire around failures the way 8t does isn't spelled out for this variant.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Links the 36 Boardfly groups into one pod.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="boardfly">Boardfly</button><button data-goto="board">Boards</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="tpu" data-role="gpu" hidden>
+          <span class="role">Accelerator <button class="info-btn inline" popovertarget="g-concept-tpu" aria-label="What is a TPU?">i</button></span>
+          <h3>TPU 8tx</h3>
+          <div class="count">Announced 9 Nov 2026 · same silicon as TPU 8t</div>
+          <p class="why"><strong>Why it's special:</strong> there's no new chip. Google reuses the TPU 8t silicon and changes the host and the network. The numbers below are 8t's. The 12.6 PFLOPS is an FP4 peak, so don't compare it directly with Ironwood's FP8 figure <button class="info-btn inline" popovertarget="g-8t-concept-fp4" aria-label="What is FP4?">i</button>.</p>
+          <h4>Key numbers (per chip, same as 8t)</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">12.6 PF</span><span class="l">FP4 peak</span></div>
+            <div class="stat"><span class="v">216 GB</span><span class="l">HBM</span></div>
+            <div class="stat"><span class="v">6,528 GB/s</span><span class="l">memory bandwidth</span></div>
+            <div class="stat"><span class="v">128 MB</span><span class="l">on-chip SRAM</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Runs private fine-tuning, distillation, RL for agents and secure agent execution.</li>
+                <li>Aimed at regulated enterprises and governments. Google names no customers.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="host">AMD EPYC host</button><button data-goto="boardfly">Boardfly</button><button data-goto="board">Boards</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="host" data-role="cpu" hidden>
+          <span class="role">Host CPU <button class="info-btn inline" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button></span>
+          <h3>5th Gen AMD EPYC host</h3>
+          <div class="count">Replaces Google's Axion · host ratio not published</div>
+          <p class="why"><strong>Why it's special:</strong> the host is the only compute part that changes from 8t. Google picked AMD EPYC so the system can offer confidential computing, aimed at secure inference and small-scale training.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Boots the system and feeds the TPUs.</li>
+                <li>Provides the base for confidential compute (next part).</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tpu">TPU 8tx</button><button data-goto="cc">Confidential compute</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="cc" data-role="cpu" hidden>
+          <span class="role">Security <button class="info-btn inline" popovertarget="g-concept-cc" aria-label="What is confidential computing?">i</button></span>
+          <h3>Confidential compute</h3>
+          <div class="count">"Hardware-level confidential compute" (Google) · built on AMD SEV (AMD)</div>
+          <p class="why"><strong>Why it's special:</strong> it aims to protect data and model weights while they are in use, not only at rest. AMD calls this the first cloud TPU system with hardware-enforced confidential computing. Press says the AMD CPU provides the root of trust and encryption accelerators <span class="tag tag-verify">PRESS</span>.</p>
+          <h4>What isn't published</h4>
+          <div class="detail-split">
+            <div>
+              <h4>Open questions</h4>
+              <ul>
+                <li>Whether it is SEV-SNP, and how attestation works.</li>
+                <li>Whether HBM or ICI traffic is encrypted.</li>
+                <li>Google's Confidential VM docs have said TPUs can't attach to Confidential VMs, so how protection extends into the TPU isn't documented yet.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="host">AMD EPYC host</button><button data-goto="tpu">TPU 8tx</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</div>
+<div data-variant="8i-max" hidden>
+  <p class="variant-note">Shown: what Google has said about the 8i Max system. It gave no rack chip counts or network design, so this view is short on purpose.</p>
+
+  <div data-explorer data-noun="components of the system">
+    <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+    <div class="explorer">
+      <div class="rack-col">
+        <h3>The rack · same footprint, twice the silicon</h3>
+        <div class="rack-frame">
+          <div class="part" data-part="rack" data-role="power">
+            <button class="part-btn"><span class="n">Rack footprint &amp; power</span><span class="s">2× silicon in the existing rack</span><span class="leds"><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-concept-cooling" aria-label="What is liquid cooling?">i</button>
+          </div>
+          <div class="part" data-part="board" data-role="tray">
+            <button class="part-btn"><span class="n">Board (tray)</span><span class="s">Layout not published</span><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
+            <button class="info-btn" popovertarget="g-8i-concept-tray" aria-label="What is a board?">i</button>
+          </div>
+        </div>
+
+        <h3>Inside the package</h3>
+        <div class="tray-zoom">
+          <div class="part" data-part="pkg" data-role="gpu">
+            <button class="part-btn"><span class="n">TPU 8i Max</span><span class="s">2 × 8i in one package</span></button>
+            <button class="info-btn" popovertarget="g-concept-tpu" aria-label="What is a TPU?">i</button>
+          </div>
+          <div class="part" data-part="host" data-role="cpu">
+            <button class="part-btn"><span class="n">Host CPU</span><span class="s">Not detailed</span></button>
+            <button class="info-btn" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button>
+          </div>
+        </div>
+
+        <h3>Networks</h3>
+        <div class="beyond">
+          <div class="part" data-part="ici" data-role="net">
+            <button class="part-btn"><span class="n">Chip-to-chip network</span><span class="s">Not detailed</span></button>
+            <button class="info-btn" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button>
+          </div>
+          <div class="part" data-part="beyond" data-role="net">
+            <button class="part-btn"><span class="n">Pods &amp; data centre</span><span class="s">Not detailed</span></button>
+            <button class="info-btn" popovertarget="g-concept-dcn" aria-label="What is a data-centre network?">i</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-col">
+        <div class="card empty-detail">
+          <div class="big" aria-hidden="true">👈</div>
+          <p><strong>Pick any component to start.</strong><br>Pulsing dots mark the parts you haven't opened yet.</p>
+        </div>
+
+        <article class="part-detail card" data-detail="rack" data-role="power" hidden>
+          <span class="role">System infrastructure <button class="info-btn inline" popovertarget="g-concept-cooling" aria-label="What is liquid cooling?">i</button></span>
+          <h3>Rack footprint &amp; power</h3>
+          <div class="count">"Twice the silicon within the existing rack footprint" (Google)</div>
+          <p class="why"><strong>Why it's special:</strong> data-centre floor space and power are fixed. By putting two chips into one package, Google packs more compute into the same space and claims the highest compute density per rack. Google hasn't published rack power, cooling details or how many chips a rack holds.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">2×</span><span class="l">silicon per rack footprint vs 8i</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Houses the boards in the same rack footprint 8i uses.</li>
+                <li>For 8i, Google cites 4th-generation liquid cooling. It hasn't said whether Max differs.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="board">Board</button><button data-goto="pkg">TPU 8i Max</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="board" data-role="tray" hidden>
+          <span class="role">Building block <button class="info-btn inline" popovertarget="g-8i-concept-tray" aria-label="What is a board?">i</button></span>
+          <h3>Board (tray)</h3>
+          <div class="count">Layout not published by Google</div>
+          <p class="why"><strong>Why it matters:</strong> Google hasn't said how many 8i Max packages sit on a board or how boards are wired. Next Platform notes an unexplained, different ICI port on the board <span class="tag tag-verify">PRESS</span>, so the board may not be a copy of 8i's.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Carries the packages and their links, as on any TPU board.</li>
+                <li>For comparison, an 8i board holds 4 chips, fully connected. Don't assume the same for Max.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Look inside</h4>
+              <div class="links-to"><button data-goto="pkg">TPU 8i Max</button><button data-goto="ici">Chip network</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="pkg" data-role="gpu" hidden>
+          <span class="role">Accelerator <button class="info-btn inline" popovertarget="g-concept-tpu" aria-label="What is a TPU?">i</button></span>
+          <h3>TPU 8i Max</h3>
+          <div class="count">Two TPU 8i chips in one package · announced 9 November 2026</div>
+          <p class="why"><strong>Why it's special:</strong> long context is limited by memory bandwidth, not maths. 8i Max doubles compute, SRAM and HBM bandwidth to serve many agents working over a whole codebase, or hours of video. Open "The TPU" tab to see how it differs from 8i.</p>
+          <h4>Key numbers (derived from Google's 2× claim)</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">≈20.2 PF</span><span class="l">FP4, derived: 2 × 10.1 PF</span></div>
+            <div class="stat"><span class="v">768 MB</span><span class="l">SRAM, derived: 2 × 384 MB</span></div>
+            <div class="stat"><span class="v">≈17.2 TB/s</span><span class="l">HBM bandwidth, derived: 2 × 8.6</span></div>
+            <div class="stat"><span class="v">384 GB</span><span class="l">HBM, Next Platform inference; Google gave no figure</span><span class="tag tag-verify">PRESS</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Keeps very large KV caches close to the compute.</li>
+                <li>Next Platform infers 192 GB per chip (8-high stacks), +33% vs 8i's 288 GB per package <span class="tag tag-verify">PRESS</span>.</li>
+                <li>Availability and pricing: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="board">Board</button><button data-goto="host">Host CPU</button><button data-goto="ici">Chip network</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="host" data-role="cpu" hidden>
+          <span class="role">Host CPU <button class="info-btn inline" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button></span>
+          <h3>Host CPU</h3>
+          <div class="count">Not detailed for 8i Max</div>
+          <p class="why"><strong>Why it matters:</strong> every TPU needs a host to boot it and feed it data. Google's 8i Max announcement doesn't describe the host. TPU 8i uses Google's Arm-based Axion, but Google hasn't confirmed the same for Max.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Boots the system and runs non-matrix work, as on any TPU.</li>
+                <li>CPU count and link speed: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="pkg">TPU 8i Max</button><button data-goto="beyond">Data-centre network</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="ici" data-role="net" hidden>
+          <span class="role">Scale-up network <button class="info-btn inline" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button></span>
+          <h3>Chip-to-chip network</h3>
+          <div class="count">Not detailed by Google for 8i Max</div>
+          <p class="why"><strong>Why it matters:</strong> Google hasn't said how 8i Max packages are linked. TPU 8i uses the Boardfly topology, but Google makes no Boardfly claim for Max, so none is made here.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Would link packages so many can serve one model, as ICI does on other TPUs.</li>
+                <li>Link speed, topology and pod size: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="pkg">TPU 8i Max</button><button data-goto="beyond">Pods &amp; data centre</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next part <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="beyond" data-role="net" hidden>
+          <span class="role">Data-centre network <button class="info-btn inline" popovertarget="g-concept-dcn" aria-label="What is a data-centre network?">i</button></span>
+          <h3>Pods &amp; data-centre network</h3>
+          <div class="count">Not detailed by Google for 8i Max</div>
+          <p class="why"><strong>Why it matters:</strong> reaching users and other racks needs a wider network. For 8i, Google names the Virgo fabric. It hasn't said what 8i Max uses.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Would connect racks to storage, users and other racks.</li>
+                <li>Bandwidth and design: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="ici">Chip network</button><button data-goto="host">Host CPU</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</div>
+      </div>
+
+      <!-- ===================== Block 3: The accelerator chip ===================== -->
+      <div class="tab-panel" id="tab-chip" role="tabpanel" aria-labelledby="tab-chip-btn" tabindex="0" hidden>
+        <div class="section-head">
+          <h2>Inside the TPU</h2>
+          <p>Click any block on the chip. Tap <b><span aria-hidden="true">ⓘ</span><span class="vh">the i button</span></b> to learn what that block is.</p>
+        </div>
+        <p class="legend">Simplified schematic, not a die photo or to scale. Google publishes few floorplan details. Figures are Google's own unless tagged <span class="tag tag-verify">PRESS</span>.</p>
+<div data-variant="8t" hidden>
+  <p class="variant-note">Shown: the TPU 8t chip. Google hasn't published a floorplan, so block sizes and positions are illustrative. Whether it uses several chiplets is not stated, so none are drawn.</p>
+
+  <div data-explorer data-noun="blocks on the chip">
+    <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+    <div class="explorer die-layout">
+      <div>
+        <div class="die-scroll">
+          <div class="package mi-pkg tpu-pkg" role="group" aria-label="TPU 8t package schematic">
+            <div class="core single a-core">
+              <div class="fcd">
+                <div class="die-label">Compute</div>
+                <div class="part" data-part="tc" data-role="compute">
+                  <button class="part-btn"><span class="n">TensorCores (MXUs)</span><span class="s">Count not published</span></button>
+                  <button class="info-btn" popovertarget="g-concept-tensorcore" aria-label="What is a TensorCore?">i</button>
+                </div>
+                <div class="part" data-part="sc" data-role="compute">
+                  <button class="part-btn"><span class="n">SparseCores</span><span class="s">Count not published</span></button>
+                  <button class="info-btn" popovertarget="g-concept-sparsecore" aria-label="What is a SparseCore?">i</button>
+                </div>
+                <div class="part fcd-bar" data-part="sram" data-role="cache">
+                  <button class="part-btn"><span class="n">128 MB on-chip SRAM (Vmem)</span></button>
+                  <button class="info-btn" popovertarget="g-concept-sram" aria-label="What is on-chip SRAM?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="hbm-col a-hbmL">
+              <div class="part" data-part="hbm" data-role="mem">
+                <button class="part-btn"><span class="n">HBM</span></button>
+                <button class="info-btn" popovertarget="g-concept-hbm" aria-label="What is HBM?">i</button>
+              </div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+            </div>
+            <div class="hbm-col a-hbmR">
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+            </div>
+
+            <div class="io-row a-iodT">
+              <div class="part" data-part="ici" data-role="io">
+                <button class="part-btn"><span class="n">ICI links</span><span class="s">Chip to chip</span></button>
+                <button class="info-btn" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button>
+              </div>
+              <div class="part" data-part="host" data-role="io">
+                <button class="part-btn"><span class="n">Host link</span><span class="s">To Axion CPU</span></button>
+                <button class="info-btn" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="die-caption">Six HBM stacks (three per side) is a press report <span class="tag tag-verify">PRESS</span>; the blocks and their positions are a simplified schematic.</p>
+      </div>
+
+      <div class="detail-col">
+        <div class="card empty-detail">
+          <div class="big" aria-hidden="true">🔬</div>
+          <p><strong>Zoom into the silicon.</strong><br>Start with the compute block, where the maths happens.</p>
+        </div>
+
+        <article class="part-detail card" data-detail="tc" data-role="compute" hidden>
+          <span class="role">Compute <button class="info-btn inline" popovertarget="g-concept-tensorcore" aria-label="What is a TensorCore?">i</button></span>
+          <h3>TensorCores (MXUs)</h3>
+          <div class="count">Number of TensorCores: not published</div>
+          <p class="why"><strong>Why it's special:</strong> native FP4 support doubles matrix-unit (MXU) throughput, which gives the headline 12.6 PFLOPS. That is an FP4 peak. Google hasn't published the FP8 or BF16 figures, and Ironwood's 4,614 TFLOPS is FP8, so the two numbers can't be compared directly <button class="info-btn inline" popovertarget="g-8t-concept-fp4" aria-label="What is FP4?">i</button>.</p>
+          <h4>Key numbers (per chip)</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">12.6 PF</span><span class="l">FP4 peak</span></div>
+            <div class="stat"><span class="v">2×</span><span class="l">MXU throughput from native FP4</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Runs the big matrix multiplications at the heart of training.</li>
+                <li>Ironwood had 2 TensorCores per chip. For 8t, Google hasn't said.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="sc">SparseCores</button><button data-goto="sram">SRAM</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="sc" data-role="compute" hidden>
+          <span class="role">Compute <button class="info-btn inline" popovertarget="g-concept-sparsecore" aria-label="What is a SparseCore?">i</button></span>
+          <h3>SparseCores</h3>
+          <div class="count">Present · count not published</div>
+          <p class="why"><strong>Why it's special:</strong> not all AI work is neat matrix maths. SparseCores handle scattered memory lookups and data shuffles, which Google says includes embedding lookups and all-gather-type collectives (sharing results among all chips) in large training runs.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Takes the lookup and collective work off the TensorCores.</li>
+                <li>Ironwood had 4 SparseCores per chip. For 8t, Google hasn't said.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="hbm">HBM</button><button data-goto="ici">ICI links</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="sram" data-role="cache" hidden>
+          <span class="role">On-chip memory <button class="info-btn inline" popovertarget="g-concept-sram" aria-label="What is on-chip SRAM?">i</button></span>
+          <h3>On-chip SRAM (Vmem)</h3>
+          <div class="count">128 MB</div>
+          <p class="why"><strong>Why it matters:</strong> SRAM is far faster than HBM. Keeping hot data here saves trips to HBM, which is useful when HBM bandwidth is the limit. TPU 8t has less HBM bandwidth than Ironwood, so this matters.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">128 MB</span><span class="l">Vmem per chip</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Holds working data close to the compute.</li>
+                <li>Its bandwidth isn't published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="hbm" data-role="mem" hidden>
+          <span class="role">Memory <button class="info-btn inline" popovertarget="g-concept-hbm" aria-label="What is HBM?">i</button></span>
+          <h3>HBM</h3>
+          <div class="count">216 GB · generation not named by Google; press says HBM3E, six 12-high stacks <span class="tag tag-verify">PRESS</span></div>
+          <p class="why"><strong>Why it's special:</strong> 8t trades speed for size. Ironwood has 192 GiB at 7,380 GB/s; 8t has 216 GB at 6,528 GB/s. That is more capacity and about 11.5% less bandwidth (derived). Across a superpod the HBM adds up to roughly 2 PB.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">216 GB</span><span class="l">capacity per chip</span></div>
+            <div class="stat"><span class="v">6,528 GB/s</span><span class="l">bandwidth per chip</span></div>
+            <div class="stat"><span class="v">~2 PB</span><span class="l">per 9,600-chip superpod</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Holds weights, activations and training state.</li>
+                <li>For comparison, Nvidia Rubin has 288 GB of HBM4 and AMD MI455X has 432 GB.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="sram">SRAM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="ici" data-role="io" hidden>
+          <span class="role">Scale-up I/O <button class="info-btn inline" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button></span>
+          <h3>ICI links</h3>
+          <div class="count">2× scale-up bandwidth vs Ironwood · link count not published</div>
+          <p class="why"><strong>Why it's special:</strong> these links wire each chip directly to its neighbours in the 3D torus. Google says bandwidth doubled versus Ironwood but hasn't given the new number. Ironwood's was 1,200 GB/s bidirectional over 6 links.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">2×</span><span class="l">vs Ironwood</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Carries chip-to-chip traffic inside the superpod.</li>
+                <li>Reroutes around faulty links automatically.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="sc">SparseCores</button><button data-goto="host">Host link</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="host" data-role="io" hidden>
+          <span class="role">CPU link <button class="info-btn inline" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button></span>
+          <h3>Host link</h3>
+          <div class="count">To Google's Axion CPU</div>
+          <p class="why"><strong>Why it matters:</strong> the host CPU loads data and launches work. Google hasn't published the link's type or speed for TPU 8t, and hasn't published the ratio of chips to hosts.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Carries commands, input data and results between the host and the TPU.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="ici">ICI links</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</div>
+<div data-variant="8i" hidden>
+  <p class="variant-note">Shown: one TPU 8i chip. Google publishes no floorplan, so block positions are illustrative.</p>
+
+  <div data-explorer data-noun="blocks on the chip">
+    <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+    <div class="explorer die-layout">
+      <div>
+        <div class="die-scroll">
+          <div class="package mi-pkg tpu-pkg" role="group" aria-label="TPU 8i package schematic">
+            <div class="core single a-core">
+              <div class="fcd">
+                <div class="die-label">Chiplet die</div>
+                <div class="part" data-part="tc" data-role="compute">
+                  <button class="part-btn"><span class="n">TensorCore</span></button>
+                  <button class="info-btn" popovertarget="g-concept-tensorcore" aria-label="What is a TensorCore?">i</button>
+                </div>
+                <div class="part" data-part="tc" data-role="compute"><button class="part-btn"><span class="n">TensorCore</span></button></div>
+                <div class="part fcd-bar" data-part="sram" data-role="cache">
+                  <button class="part-btn"><span class="n">384 MB SRAM (Vmem)</span></button>
+                  <button class="info-btn" popovertarget="g-concept-sram" aria-label="What is on-chip SRAM?">i</button>
+                </div>
+                <div class="part fcd-bar" data-part="cae" data-role="sched">
+                  <button class="part-btn"><span class="n">Collectives Acceleration Engine</span></button>
+                  <button class="info-btn" popovertarget="g-8i-concept-cae" aria-label="What is a Collectives Acceleration Engine?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="hbm-col a-hbmL">
+              <div class="part" data-part="hbm" data-role="mem">
+                <button class="part-btn"><span class="n">HBM</span></button>
+                <button class="info-btn" popovertarget="g-concept-hbm" aria-label="What is HBM?">i</button>
+              </div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+            </div>
+            <div class="hbm-col a-hbmR">
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+            </div>
+
+            <div class="io-row a-iodT">
+              <div class="part" data-part="ici" data-role="io">
+                <button class="part-btn"><span class="n">ICI links</span><span class="s">19.2 Tb/s</span></button>
+                <button class="info-btn" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button>
+              </div>
+              <div class="part" data-part="host" data-role="io">
+                <button class="part-btn"><span class="n">Host interface</span></button>
+                <button class="info-btn" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="die-caption">One chip with 8 HBM stacks <span class="tag tag-verify">PRESS</span>. Google doesn't name the HBM generation, process node or die count.</p>
+      </div>
+
+      <div class="detail-col">
+        <div class="card empty-detail">
+          <div class="big" aria-hidden="true">🔬</div>
+          <p><strong>Zoom into the silicon.</strong><br>Start with the TensorCores, where the maths happens.</p>
+        </div>
+
+        <article class="part-detail card" data-detail="tc" data-role="compute" hidden>
+          <span class="role">Compute <button class="info-btn inline" popovertarget="g-concept-tensorcore" aria-label="What is a TensorCore?">i</button></span>
+          <h3>TensorCores</h3>
+          <div class="count">2 per chip</div>
+          <p class="why"><strong>Why it's special:</strong> they do the matrix maths that makes up most of a model. The chip peaks at 10.1 PF of FP4. Nvidia Rubin quotes 50 PF NVFP4 and AMD MI455X 40 PF MXFP4, but the FP4 formats differ, so the peaks aren't directly comparable.</p>
+          <h4>Key numbers (whole chip)</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">10.1 PF</span><span class="l">FP4 peak</span></div>
+            <div class="stat"><span class="v">2</span><span class="l">TensorCores</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Multiplies large grids of numbers for the model's layers.</li>
+                <li>FP8 peak, array size and clock speed: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="sram">SRAM</button><button data-goto="cae">Collectives engine</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="sram" data-role="cache" hidden>
+          <span class="role">On-chip memory <button class="info-btn inline" popovertarget="g-concept-sram" aria-label="What is on-chip SRAM?">i</button></span>
+          <h3>SRAM ("Vmem")</h3>
+          <div class="count">384 MB · 3× Ironwood</div>
+          <p class="why"><strong>Why it's special:</strong> the SRAM is sized so that the KV cache for long-context reasoning can stay on the chip. While a model generates text, the chip then waits less on slower HBM. This is the main inference bet of the design.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">384 MB</span><span class="l">on-chip SRAM</span></div>
+            <div class="stat"><span class="v">3×</span><span class="l">Ironwood's SRAM</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Holds hot data, such as the <b>KV cache</b> of active requests, next to the TensorCores.</li>
+                <li>SRAM bandwidth: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="cae" data-role="sched" hidden>
+          <span class="role">Synchronisation <button class="info-btn inline" popovertarget="g-8i-concept-cae" aria-label="What is a Collectives Acceleration Engine?">i</button></span>
+          <h3>Collectives Acceleration Engine (CAE)</h3>
+          <div class="count">1 per chip · replaces Ironwood's four SparseCores</div>
+          <p class="why"><strong>Why it's special:</strong> TPU 8i has no SparseCores. The CAE takes their place. It handles the reductions and synchronisation that auto-regressive decoding and chain-of-thought repeat at every step, so the TensorCores don't wait. Google says it cuts on-chip collective latency by 5×.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">5×</span><span class="l">lower on-chip collective latency</span></div>
+            <div class="stat"><span class="v">1</span><span class="l">CAE (Ironwood: 4 SparseCores)</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Offloads sums and waits across the chip's cores.</li>
+                <li>Is programmable through Pallas and Mosaic.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="ici">ICI links</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="hbm" data-role="mem" hidden>
+          <span class="role">Memory <button class="info-btn inline" popovertarget="g-concept-hbm" aria-label="What is HBM?">i</button></span>
+          <h3>HBM</h3>
+          <div class="count">8 stacks <span class="tag tag-verify">PRESS</span> · 288 GB in total</div>
+          <p class="why"><strong>Why it's special:</strong> 288 GB matches Nvidia Rubin's 288 GB of HBM4 and is below AMD MI455X's 432 GB. Google doesn't name the HBM generation. Next Platform reports HBM3 <span class="tag tag-verify">PRESS</span>. Bandwidth is about 1.3× TPU 8t's.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">288 GB</span><span class="l">capacity</span></div>
+            <div class="stat"><span class="v">8,601 GB/s</span><span class="l">bandwidth</span></div>
+            <div class="stat"><span class="v">8</span><span class="l">stacks</span><span class="tag tag-verify">PRESS</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Holds model weights and any KV cache that doesn't fit in SRAM.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="sram">SRAM</button><button data-goto="tc">TensorCores</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="ici" data-role="io" hidden>
+          <span class="role">Chip-to-chip I/O <button class="info-btn inline" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button></span>
+          <h3>ICI links</h3>
+          <div class="count">19.2 Tb/s per chip · 2× the previous generation</div>
+          <p class="why"><strong>Why it's special:</strong> twice Ironwood's link bandwidth, aimed at mixture-of-experts all-to-all traffic, where each chip sends data to many others. Together with Boardfly's shorter paths, Google says latency on communication-heavy work drops by up to 50%.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">19.2 Tb/s</span><span class="l">per chip</span></div>
+            <div class="stat"><span class="v">2×</span><span class="l">vs previous generation</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Wires the chip to the 3 others on its board and on to the rest of the group.</li>
+                <li>Port count and link speed per port: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="cae">Collectives engine</button><button data-goto="host">Host interface</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="host" data-role="io" hidden>
+          <span class="role">CPU link <button class="info-btn inline" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button></span>
+          <h3>Host interface</h3>
+          <div class="count">To the Axion host CPU</div>
+          <p class="why"><strong>Why it matters:</strong> the chip needs a path to its Arm host CPU to receive work and data. Google hasn't published this interface's type or speed, so none is shown here.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Carries commands, inputs and results between the CPU and the chip.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="ici">ICI links</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</div>
+<div data-variant="8tx" hidden>
+  <p class="variant-note">Shown: the TPU 8tx chip, which is the same silicon as TPU 8t, so the blocks below are unchanged. What differs is around it: an AMD EPYC host CPU and the Boardfly network. Google has not published any extra on-chip security block. Confidential compute is described as coming from the AMD host system, and how it extends into the TPU is not documented.</p>
+
+  <div data-explorer data-noun="blocks on the chip">
+    <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+    <div class="explorer die-layout">
+      <div>
+        <div class="die-scroll">
+          <div class="package mi-pkg tpu-pkg" role="group" aria-label="TPU 8tx package schematic (same silicon as TPU 8t)">
+            <div class="core single a-core">
+              <div class="fcd">
+                <div class="die-label">Compute</div>
+                <div class="part" data-part="tc" data-role="compute">
+                  <button class="part-btn"><span class="n">TensorCores (MXUs)</span><span class="s">Count not published</span></button>
+                  <button class="info-btn" popovertarget="g-concept-tensorcore" aria-label="What is a TensorCore?">i</button>
+                </div>
+                <div class="part" data-part="sc" data-role="compute">
+                  <button class="part-btn"><span class="n">SparseCores</span><span class="s">Count not published</span></button>
+                  <button class="info-btn" popovertarget="g-concept-sparsecore" aria-label="What is a SparseCore?">i</button>
+                </div>
+                <div class="part fcd-bar" data-part="sram" data-role="cache">
+                  <button class="part-btn"><span class="n">128 MB on-chip SRAM (Vmem)</span></button>
+                  <button class="info-btn" popovertarget="g-concept-sram" aria-label="What is on-chip SRAM?">i</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="hbm-col a-hbmL">
+              <div class="part" data-part="hbm" data-role="mem">
+                <button class="part-btn"><span class="n">HBM</span></button>
+                <button class="info-btn" popovertarget="g-concept-hbm" aria-label="What is HBM?">i</button>
+              </div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+            </div>
+            <div class="hbm-col a-hbmR">
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+            </div>
+
+            <div class="io-row a-iodT">
+              <div class="part" data-part="ici" data-role="io">
+                <button class="part-btn"><span class="n">ICI links</span><span class="s">Boardfly, not torus</span></button>
+                <button class="info-btn" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button>
+              </div>
+              <div class="part" data-part="host" data-role="io">
+                <button class="part-btn"><span class="n">Host link</span><span class="s">To AMD EPYC CPU</span></button>
+                <button class="info-btn" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="die-caption">Same schematic as TPU 8t. Six HBM stacks (three per side) is a press report <span class="tag tag-verify">PRESS</span>; the blocks and their positions are a simplified schematic.</p>
+      </div>
+
+      <div class="detail-col">
+        <div class="card empty-detail">
+          <div class="big" aria-hidden="true">🔬</div>
+          <p><strong>Zoom into the silicon.</strong><br>Start with the compute block, where the maths happens.</p>
+        </div>
+
+        <article class="part-detail card" data-detail="tc" data-role="compute" hidden>
+          <span class="role">Compute <button class="info-btn inline" popovertarget="g-concept-tensorcore" aria-label="What is a TensorCore?">i</button></span>
+          <h3>TensorCores (MXUs)</h3>
+          <div class="count">Number of TensorCores: not published</div>
+          <p class="why"><strong>Why it's special:</strong> native FP4 support doubles matrix-unit (MXU) throughput, which gives the same 12.6 PFLOPS FP4 peak as TPU 8t. That is an FP4 peak. Google hasn't published the FP8 or BF16 figures, and Ironwood's 4,614 TFLOPS is FP8, so the two numbers can't be compared directly <button class="info-btn inline" popovertarget="g-8t-concept-fp4" aria-label="What is FP4?">i</button>.</p>
+          <h4>Key numbers (per chip)</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">12.6 PF</span><span class="l">FP4 peak</span></div>
+            <div class="stat"><span class="v">2×</span><span class="l">MXU throughput from native FP4</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Runs the big matrix multiplications at the heart of training.</li>
+                <li>Ironwood had 2 TensorCores per chip. For 8t, Google hasn't said.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="sc">SparseCores</button><button data-goto="sram">SRAM</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="sc" data-role="compute" hidden>
+          <span class="role">Compute <button class="info-btn inline" popovertarget="g-concept-sparsecore" aria-label="What is a SparseCore?">i</button></span>
+          <h3>SparseCores</h3>
+          <div class="count">Present · count not published</div>
+          <p class="why"><strong>Why it's special:</strong> not all AI work is neat matrix maths. SparseCores handle scattered memory lookups and data shuffles, which Google says includes embedding lookups and all-gather-type collectives (sharing results among all chips) in large training runs.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Takes the lookup and collective work off the TensorCores.</li>
+                <li>Ironwood had 4 SparseCores per chip. For 8t, Google hasn't said.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="hbm">HBM</button><button data-goto="ici">ICI links</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="sram" data-role="cache" hidden>
+          <span class="role">On-chip memory <button class="info-btn inline" popovertarget="g-concept-sram" aria-label="What is on-chip SRAM?">i</button></span>
+          <h3>On-chip SRAM (Vmem)</h3>
+          <div class="count">128 MB</div>
+          <p class="why"><strong>Why it matters:</strong> SRAM is far faster than HBM. Keeping hot data here saves trips to HBM, which is useful when HBM bandwidth is the limit. The same chip has less HBM bandwidth than Ironwood, so this matters.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">128 MB</span><span class="l">Vmem per chip</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Holds working data close to the compute.</li>
+                <li>Its bandwidth isn't published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="hbm" data-role="mem" hidden>
+          <span class="role">Memory <button class="info-btn inline" popovertarget="g-concept-hbm" aria-label="What is HBM?">i</button></span>
+          <h3>HBM</h3>
+          <div class="count">216 GB · generation not named by Google; press says HBM3E, six 12-high stacks <span class="tag tag-verify">PRESS</span></div>
+          <p class="why"><strong>Why it's special:</strong> Like 8t, this chip trades speed for size. Ironwood has 192 GiB at 7,380 GB/s; 8t has 216 GB at 6,528 GB/s. That is more capacity and about 11.5% less bandwidth (derived). Same memory as TPU 8t.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">216 GB</span><span class="l">capacity per chip</span></div>
+            <div class="stat"><span class="v">6,528 GB/s</span><span class="l">bandwidth per chip</span></div>
+                      </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Holds weights, activations and training state.</li>
+                <li>For comparison, Nvidia Rubin has 288 GB of HBM4 and AMD MI455X has 432 GB.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="sram">SRAM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="ici" data-role="io" hidden>
+          <span class="role">Scale-up I/O <button class="info-btn inline" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button></span>
+          <h3>ICI links (Boardfly layout)</h3>
+          <div class="count">Same silicon as 8t · wired differently · link count not published</div>
+          <p class="why"><strong>Why it's special:</strong> the chip is the same, but 8tx uses the low-latency Boardfly topology from TPU 8i instead of 8t's 3D torus. Google says this gives up to 2&times; lower latency than TPU 8t with near-zero performance penalty. Boardfly is a dragonfly-style topology <span class="tag tag-verify">PRESS</span>. Learn more about it on the TPU 8i variant <button class="info-btn inline" popovertarget="g-8i-concept-boardfly" aria-label="What is Boardfly?">i</button>.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">Up to 2&times;</span><span class="l">lower latency than TPU 8t</span></div>
+            <div class="stat"><span class="v">7 vs 16</span><span class="l">max hops: Boardfly vs a comparable 3D torus</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>4 chips per board are fully connected; 8 boards per group are fully connected by copper.</li>
+                <li>36 groups link through optical circuit switches.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="sc">SparseCores</button><button data-goto="host">Host link</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="host" data-role="io" hidden>
+          <span class="role">CPU link <button class="info-btn inline" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button></span>
+          <h3>Host link (to AMD EPYC)</h3>
+          <div class="count">5th Gen AMD EPYC instead of Axion</div>
+          <p class="why"><strong>Why it's special:</strong> this is where 8tx differs most. The TPU is the same, but its host is a 5th Gen AMD EPYC. Google calls the result "hardware-level confidential compute" for data and model weights in use. AMD says it uses AMD SEV. Press reports the AMD CPU provides the root of trust and encryption accelerators <span class="tag tag-verify">PRESS</span>. SEV-SNP specifically, attestation details, and whether HBM or ICI traffic is encrypted are not published. Google's older Confidential VM docs said TPUs can't attach to Confidential VMs, so how protection reaches the TPU isn't documented yet.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does here</h4>
+              <ul>
+                <li>Carries commands, input data and results between the EPYC host and the TPU.</li>
+                <li>The link's type and speed aren't published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="ici">ICI links</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</div>
+<div data-variant="8i-max" hidden>
+  <p class="variant-note">Shown: two TPU 8i chips in one package. Google hasn't said how the two are joined or arranged, so this layout is illustrative.</p>
+
+  <div data-explorer data-noun="blocks on the chip">
+    <div class="explorer-progress"><span class="count"></span><div class="bar"><span></span></div></div>
+
+    <div class="explorer die-layout">
+      <div>
+        <div class="die-scroll">
+          <div class="package mi-pkg tpu-pkg" role="group" aria-label="TPU 8i Max package schematic">
+            <div class="core a-core">
+              <div class="fcd">
+                <div class="die-label">8i chip 1</div>
+                <div class="part" data-part="tc" data-role="compute">
+                  <button class="part-btn"><span class="n">TensorCore</span></button>
+                  <button class="info-btn" popovertarget="g-concept-tensorcore" aria-label="What is a TensorCore?">i</button>
+                </div>
+                <div class="part" data-part="tc" data-role="compute"><button class="part-btn"><span class="n">TensorCore</span></button></div>
+                <div class="part fcd-bar" data-part="sram" data-role="cache">
+                  <button class="part-btn"><span class="n">384 MB SRAM</span></button>
+                  <button class="info-btn" popovertarget="g-concept-sram" aria-label="What is on-chip SRAM?">i</button>
+                </div>
+                <div class="part fcd-bar" data-part="cae" data-role="sched">
+                  <button class="part-btn"><span class="n">Collectives engine</span></button>
+                  <button class="info-btn" popovertarget="g-8i-concept-cae" aria-label="What is a Collectives Acceleration Engine?">i</button>
+                </div>
+              </div>
+              <div class="fcd">
+                <div class="die-label">8i chip 2</div>
+                <div class="part" data-part="tc" data-role="compute"><button class="part-btn"><span class="n">TensorCore</span></button></div>
+                <div class="part" data-part="tc" data-role="compute"><button class="part-btn"><span class="n">TensorCore</span></button></div>
+                <div class="part fcd-bar" data-part="sram" data-role="cache"><button class="part-btn"><span class="n">384 MB SRAM</span></button></div>
+                <div class="part fcd-bar" data-part="cae" data-role="sched"><button class="part-btn"><span class="n">Collectives engine</span></button></div>
+              </div>
+            </div>
+
+            <div class="hbm-col a-hbmL">
+              <div class="part" data-part="hbm" data-role="mem">
+                <button class="part-btn"><span class="n">HBM</span></button>
+                <button class="info-btn" popovertarget="g-concept-hbm" aria-label="What is HBM?">i</button>
+              </div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+            </div>
+            <div class="hbm-col a-hbmR">
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+              <div class="part" data-part="hbm" data-role="mem"><button class="part-btn"><span class="n">HBM</span></button></div>
+            </div>
+
+            <div class="io-row a-iodT">
+              <div class="part" data-part="ici" data-role="io">
+                <button class="part-btn"><span class="n">ICI links</span></button>
+                <button class="info-btn" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button>
+              </div>
+              <div class="part" data-part="host" data-role="io">
+                <button class="part-btn"><span class="n">Host interface</span></button>
+                <button class="info-btn" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="die-caption">Two 8i chips, 16 HBM stacks in total if each keeps eight <span class="tag tag-verify">PRESS</span>. Google hasn't published the die-to-die link, HBM generation or process node.</p>
+      </div>
+
+      <div class="detail-col">
+        <div class="card empty-detail">
+          <div class="big" aria-hidden="true">🔬</div>
+          <p><strong>Zoom into the silicon.</strong><br>Start with the TensorCores, where the maths happens.</p>
+        </div>
+
+        <article class="part-detail card" data-detail="tc" data-role="compute" hidden>
+          <span class="role">Compute <button class="info-btn inline" popovertarget="g-concept-tensorcore" aria-label="What is a TensorCore?">i</button></span>
+          <h3>TensorCores</h3>
+          <div class="count">2 per 8i chip · 4 per package, derived</div>
+          <p class="why"><strong>Why it's special:</strong> Google says 8i Max has double the compute of 8i, so about 20.2 PF of FP4. That figure is our arithmetic from Google's 2× claim (2 × 10.1 PF), not a number Google published.</p>
+          <h4>Key numbers (whole package)</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">≈20.2 PF</span><span class="l">FP4, derived from Google's 2× claim</span></div>
+            <div class="stat"><span class="v">2×</span><span class="l">compute vs 8i</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Runs the same matrix maths as in 8i, on twice the silicon.</li>
+                              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="sram">SRAM</button><button data-goto="cae">Collectives engine</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="sram" data-role="cache" hidden>
+          <span class="role">On-chip memory <button class="info-btn inline" popovertarget="g-concept-sram" aria-label="What is on-chip SRAM?">i</button></span>
+          <h3>SRAM</h3>
+          <div class="count">768 MB per package, derived: 2 × 384 MB</div>
+          <p class="why"><strong>Why it's special:</strong> Google says 8i Max has double the SRAM of 8i. More on-chip memory keeps more of a large KV cache next to the compute, which matters when many agents share a huge context.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">768 MB</span><span class="l">SRAM, derived from Google's 2× claim</span></div>
+            <div class="stat"><span class="v">6×</span><span class="l">Ironwood's SRAM, derived: 2 × 3×</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Holds hot data such as the KV cache.</li>
+                <li>Whether the two SRAM pools are shared across chips: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="cae" data-role="sched" hidden>
+          <span class="role">Synchronisation <button class="info-btn inline" popovertarget="g-8i-concept-cae" aria-label="What is a Collectives Acceleration Engine?">i</button></span>
+          <h3>Collectives Acceleration Engine</h3>
+          <div class="count">1 per 8i chip · assumed 2 per package</div>
+          <p class="why"><strong>Why it matters:</strong> 8i Max is two 8i chips, and each 8i has one CAE. Google hasn't described the CAEs in the Max package, so treat this as an inference. On 8i the engine cuts on-chip collective latency by 5×.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Offloads reductions and synchronisation from the TensorCores.</li>
+                <li>How it coordinates across the two chips: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="tc">TensorCores</button><button data-goto="ici">ICI links</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="hbm" data-role="mem" hidden>
+          <span class="role">Memory <button class="info-btn inline" popovertarget="g-concept-hbm" aria-label="What is HBM?">i</button></span>
+          <h3>HBM</h3>
+          <div class="count">Capacity not published by Google</div>
+          <p class="why"><strong>Why it's special:</strong> this is the headline. Google says HBM bandwidth doubles vs 8i, to about 17.2 TB/s (derived: 2 × 8.6 TB/s). Next Platform infers that each chip keeps 8 HBM3 stacks at 8.6 TB/s but with 192 GB instead of 288 GB (8-high instead of 12-high stacks), giving 384 GB per package, 33% more than 8i. The author calls this an inference from a table image <span class="tag tag-verify">PRESS</span>.</p>
+          <h4>Key numbers</h4>
+          <div class="stats">
+            <div class="stat"><span class="v">≈17.2 TB/s</span><span class="l">bandwidth, derived from Google's 2× claim</span></div>
+            <div class="stat"><span class="v">384 GB</span><span class="l">capacity, inferred</span><span class="tag tag-verify">PRESS</span></div>
+            <div class="stat"><span class="v">16</span><span class="l">stacks, inferred</span><span class="tag tag-verify">PRESS</span></div>
+          </div>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Holds weights and the KV cache for long-context work such as a whole codebase or hours of video.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="sram">SRAM</button><button data-goto="tc">TensorCores</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="ici" data-role="io" hidden>
+          <span class="role">Chip-to-chip I/O <button class="info-btn inline" popovertarget="g-concept-ici" aria-label="What is ICI?">i</button></span>
+          <h3>ICI links</h3>
+          <div class="count">Not detailed by Google for 8i Max</div>
+          <p class="why"><strong>Why it matters:</strong> TPU 8i has 19.2 Tb/s of ICI per chip. Google gives no ICI figure for the package, and Next Platform notes an unexplained different ICI port on the board <span class="tag tag-verify">PRESS</span>.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Would link the package to other packages.</li>
+                <li>Link speed and topology: not published.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="cae">Collectives engine</button><button data-goto="host">Host interface</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Next block <span aria-hidden="true">→</span></button></div>
+        </article>
+
+        <article class="part-detail card" data-detail="host" data-role="io" hidden>
+          <span class="role">CPU link <button class="info-btn inline" popovertarget="g-concept-host" aria-label="What is a host CPU?">i</button></span>
+          <h3>Host interface</h3>
+          <div class="count">To the host CPU</div>
+          <p class="why"><strong>Why it matters:</strong> the package needs a path to its host CPU. Google hasn't published the type or speed of this interface for 8i Max, so none is shown.</p>
+          <div class="detail-split">
+            <div>
+              <h4>What it does</h4>
+              <ul>
+                <li>Carries commands, inputs and results between the CPU and the package.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connects to</h4>
+              <div class="links-to"><button data-goto="ici">ICI links</button><button data-goto="hbm">HBM</button></div>
+            </div>
+          </div>
+          <div class="detail-nav"><button class="btn btn-ghost" data-step="-1"><span aria-hidden="true">←</span> Previous</button><button class="btn" data-step="1">Back to start <span aria-hidden="true">→</span></button></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</div>
+      </div>
+
+      <!-- ===================== Block 5: Software ecosystem ===================== -->
+      <div class="tab-panel" id="tab-sw" role="tabpanel" aria-labelledby="tab-sw-btn" tabindex="0" hidden>
+        <h2>Google's TPU software stack</h2>
+        <p class="variant-note">All four TPU 8 variants share one stack: the XLA compiler sits between your framework and the chip, so Google says the same JAX, PyTorch or Keras code that ran on Ironwood scales to the 8th generation.</p>
+        <div class="stack">
+          <div class="layer"><span class="name">Access</span><span><b>Google Cloud only</b>: AI Hypercomputer, GKE (with <b>dynamic slicing</b> to carve pods into slices on demand) and bare-metal TPUs with no virtualisation overhead</span></div>
+          <div class="layer"><span class="name">Serving</span><span><b>vLLM</b> and <b>SGLang</b> (native TPU 8i backends) · <b>XLA Serving Engine</b>, an open-source C++ runtime: train in Python, serve in C++ (announced Nov 2026)</span></div>
+          <div class="layer"><span class="name">Frameworks</span><span><b>JAX</b> (Google's native choice) · <b>TorchTPU</b> for native PyTorch · Keras · <b>MaxText</b> reference LLMs · <b>Tunix</b> for RL post-training</span></div>
+          <div class="layer"><span class="name">Runtime</span><span><b>Pathways</b>: one controller drives many TPU slices from a single program, the system Google uses to train Gemini across pods</span></div>
+          <div class="layer"><span class="name">Compiler &amp; kernels</span><span><b>XLA / OpenXLA</b> compiles whole models for the TPU · <b>Pallas</b> and Mosaic for hand-written custom kernels</span></div>
+        </div>
+
+        <h3>New in 2026</h3>
+        <div class="grid sw-cards">
+          <div class="card">
+            <h4>TorchTPU</h3>
+            <p>Native PyTorch on TPUs, replacing the older PyTorch/XLA bridge. It adds true eager mode (run line by line, like on a GPU), sends <code>torch.compile</code> through XLA, supports DDP, FSDPv2 and DTensor, and lets each process run different code, which PyTorch/XLA couldn't. Pallas kernels plug straight in.</p>
+            <p class="variant-note">Reported open-sourced on 20 Oct 2026 under Apache 2.0, validated on v5e to Ironwood <span class="tag tag-verify">PRESS</span>. Google's own post still described it as coming.</p>
+          </div>
+          <div class="card">
+            <h4>Cloud Pathways (GA)</h4>
+            <p>Google's internal distributed runtime became a managed product on GKE on 10 Nov 2026. One JAX client can drive many slices for training or serving.</p>
+            <p class="variant-note">Launch support lists v5e, v5p, v6e and Ironwood; Google hasn't yet stated TPU 8 support.</p>
+          </div>
+          <div class="card">
+            <h4>Why it matters</h4>
+            <p>For years, TPUs meant learning JAX. Native PyTorch, vLLM and SGLang support remove the biggest reason teams stayed on GPUs. Google's remaining lock-in is access: TPUs only run in Google Cloud.</p>
+          </div>
+        </div>
+
+        <h3>For the variant you picked</h3>
+        <p class="note" data-variant="8t" hidden><b>TPU 8t:</b> training at scale leans on JAX + Pathways + MaxText. The Virgo network and Pathways let more than a million TPUs across sites act as one training cluster. Faster checkpoints come from TPUDirect RDMA/Storage and Managed Lustre.</p>
+        <p class="note" data-variant="8i" hidden><b>TPU 8i:</b> serving runs on vLLM or SGLang. The new Collectives Acceleration Engine can be programmed through Pallas/Mosaic for custom decode kernels.</p>
+        <p class="note" data-variant="8tx" hidden><b>TPU 8tx:</b> same stack as 8t. Google hasn't published how confidential-computing setup (such as attestation) is exposed to developers.</p>
+        <p class="note" data-variant="8i-max" hidden><b>TPU 8i Max:</b> same serving stack as 8i. Google hasn't said whether software sees the two chips in a package as one device or two (Ironwood's two chiplets appear as two devices).</p>
+        <p><a href="../software.html">Compare with other vendors <span aria-hidden="true">→</span></a></p>
+      </div>
+
+      <!-- ===================== Block 6: Claims ===================== -->
+      <div class="tab-panel" id="tab-claims" role="tabpanel" aria-labelledby="tab-claims-btn" tabindex="0" hidden>
+<div data-variant="8t" hidden>
+  <h2>TPU 8t: Google's headline claims</h2>
+  <p class="legend">Google's own claims, compared with Ironwood (TPU7x) unless noted. "Up to 2.7×" is training performance per dollar, not raw speed. The raw per-pod claim is "nearly 3× compute performance per pod". FP4 and FP8 peaks aren't like-for-like, so we don't compare them.</p>
+  <div class="claims">
+    <div class="claim card"><span class="value">Nearly 3×</span><span>compute performance per pod</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">Up to 2.7×</span><span>training performance per dollar (not raw speed)</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">Up to 2×</span><span>performance per watt</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">2×</span><span>scale-up (ICI) bandwidth</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">Up to 4×</span><span>raw data-centre network bandwidth</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">10×</span><span>faster storage access</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">&gt;97%</span><span>goodput target</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">121 EF</span><span>FP4 per 9,600-chip superpod, ~2 PB shared HBM</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">134,000</span><span>chips in one Virgo fabric, up to 47 Pb/s bisection bandwidth</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">Optics liquid-cooled</span><span>for the first time</span><span class="tag tag-verify">PRESS</span></div>
+  </div>
+  <h3>Availability</h3>
+  <p>Google said TPU 8t is "coming soon", with general availability later in 2026. We have no GA confirmation. Next Platform reports it is rolling into Google data centres now, with modified versions in 2027 <span class="tag tag-verify">PRESS</span>.</p>
+</div>
+<div data-variant="8i" hidden>
+  <h2>TPU 8i headline claims vs Ironwood</h2>
+  <p class="legend">Google's own comparisons with the previous generation, Ironwood, unless tagged <span class="tag tag-verify">PRESS</span>. "Up to 80% better performance per dollar" is Google's figure for low-latency targets on large mixture-of-experts models, which it describes as serving nearly twice the customers at the same cost.</p>
+  <div class="claims">
+    <div class="claim card"><span class="value">Up to 80%</span><span>better performance per dollar</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">Up to 2×</span><span>performance per watt</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">3×</span><span>on-chip SRAM (384 MB)</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">2×</span><span>ICI bandwidth (19.2 Tb/s per chip)</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">5×</span><span>lower on-chip collective latency</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">−56%</span><span>network diameter (7 vs 16 hops)</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">Up to 50%</span><span>better latency on communication-heavy workloads</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">≈11.6 EF</span><span>FP4 per pod, derived: 1,152 × 10.1 PF</span><span class="tag tag-verify">PRESS</span></div>
+    <div class="claim card"><span class="value">2027</span><span>expected availability (Google: "later this year", no date since)</span><span class="tag tag-verify">PRESS</span></div>
+  </div>
+  <h3>Open questions</h3>
+  <p>Google hasn't published the process node, power draw or FP8 peak. Press reports name MediaTek as design partner and mention delays, so it is unclear when the chip ships <span class="tag tag-verify">PRESS</span>.</p>
+</div>
+<div data-variant="8tx" hidden>
+  <h2>TPU 8tx: headline claims</h2>
+  <p class="legend">Claims from Google and AMD, as announced on 9 Nov 2026. Price, availability and named customers are not published. Google says TPUs have nearly 100 customers overall.</p>
+  <div class="claims">
+    <div class="claim card"><span class="value">Up to 2×</span><span>lower latency than TPU 8t, with near-zero performance penalty (Boardfly network)</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">7 vs 16</span><span>maximum hops: Boardfly vs a comparable 3D torus</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">First</span><span>cloud TPU system with hardware-enforced confidential computing (AMD's claim)</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">Same silicon</span><span>as TPU 8t, with 5th Gen AMD EPYC hosts instead of Axion</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">1,152</span><span>chips per pod (36 × 32)</span><span class="tag tag-verify">PRESS</span></div>
+    <div class="claim card"><span class="value">Root of trust</span><span>supplied by the AMD CPU, with encryption accelerators</span><span class="tag tag-verify">PRESS</span></div>
+  </div>
+  <h3>What isn't published</h3>
+  <p>Whether the protection is SEV-SNP, attestation details, and whether HBM and chip-to-chip traffic are encrypted. Google's Confidential VM docs have said TPUs can't attach to Confidential VMs, so how protection extends into the TPU isn't documented yet.</p>
+</div>
+<div data-variant="8i-max" hidden>
+  <h2>TPU 8i Max headline claims vs TPU 8i</h2>
+  <p class="legend">Announced 9 November 2026. Google's claims compare with TPU 8i. Google gave no separate performance-per-dollar claim, and hasn't published availability or pricing.</p>
+  <div class="claims">
+    <div class="claim card"><span class="value">2×</span><span>compute vs TPU 8i (≈20.2 PF FP4, derived)</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">2×</span><span>SRAM vs TPU 8i (768 MB, derived)</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">2×</span><span>HBM bandwidth vs TPU 8i (≈17.2 TB/s, derived)</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">2×</span><span>silicon within the existing rack footprint</span><span class="tag tag-vendor">VENDOR</span></div>
+    <div class="claim card"><span class="value">384 GB</span><span>HBM per package: 2 × 192 GB, Next Platform's inference from a table image</span><span class="tag tag-verify">PRESS</span></div>
+    <div class="claim card"><span class="value">&lt;2×</span><span>speculated hourly price vs TPU 8i, "a bit under"</span><span class="tag tag-verify">PRESS</span></div>
+  </div>
+  <h3>Open questions</h3>
+  <p>Google hasn't given HBM capacity, rack chip counts or a network design for 8i Max. Next Platform also notes an unexplained different ICI port on the board <span class="tag tag-verify">PRESS</span>.</p>
+</div>
+      </div>
+    </section>
+
+    <!-- ===================== Shared concept cards (ⓘ) ===================== -->
+    <div class="concept" id="g-concept-tpu" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a TPU?</h4></div>
+      <button class="close" popovertarget="g-concept-tpu" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>A <b>Tensor Processing Unit</b> is Google's own AI chip, an <b>ASIC</b> (application-specific integrated circuit) built only for the matrix maths of neural networks. It drops the graphics and general-purpose features a GPU carries, spending that silicon on AI work.</p>
+        <p>You can't buy one: TPUs are only available through Google Cloud, and they also run Google's own Gemini models.</p>
+        <div class="analogy"><b>Analogy:</b> a GPU is a Swiss Army knife; a TPU is a chef's knife made for one job.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-tensorcore" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a TensorCore?</h4></div>
+      <button class="close" popovertarget="g-concept-tensorcore" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>A TPU <b>TensorCore</b> is the main compute engine. Its heart is the <b>matrix multiply unit (MXU)</b>, a <b>systolic array</b>: a grid of small multipliers that pass numbers to their neighbours in rhythm, so each value is reused many times without going back to memory.</p>
+        <div class="analogy"><b>Analogy:</b> a bucket brigade. Instead of everyone running to the well, buckets pass hand to hand down the line.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-sparsecore" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a SparseCore?</h4></div>
+      <button class="close" popovertarget="g-concept-sparsecore" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>Some AI work isn't neat matrix maths: it's looking up a few rows scattered across a giant table, as in recommendation models (<b>embeddings</b>) or routing tokens to experts in mixture-of-experts models.</p>
+        <p>A <b>SparseCore</b> is a small processor on the TPU specialised for these scattered memory lookups and data shuffles.</p>
+        <div class="analogy"><b>Analogy:</b> a librarian who fetches a handful of books from all over the building, so the readers don't have to.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-hbm" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is HBM?</h4></div>
+      <button class="close" popovertarget="g-concept-hbm" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p><b>High-bandwidth memory</b> stacks DRAM chips on top of each other right beside the processor, connected by thousands of tiny wires. It holds the model's weights and working data.</p>
+        <p>It is fast but expensive and limited in size, and its speed often limits AI more than the maths does.</p>
+        <div class="analogy"><b>Analogy:</b> a multi-storey car park next to the stadium, with a hundred exits instead of one.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-sram" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is on-chip SRAM?</h4></div>
+      <button class="close" popovertarget="g-concept-sram" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p><b>SRAM</b> is memory built into the processor die itself. It is many times faster than HBM but takes far more space per byte, so chips carry megabytes of it rather than gigabytes.</p>
+        <p>For inference, keeping the hottest data (such as the KV cache of active conversations) in SRAM avoids slow trips to HBM.</p>
+        <div class="analogy"><b>Analogy:</b> HBM is the pantry; SRAM is the cutting board right in front of you.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-ici" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is ICI?</h4></div>
+      <button class="close" popovertarget="g-concept-ici" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p><b>Inter-chip interconnect</b> is Google's direct chip-to-chip link. Unlike Nvidia's NVLink, which routes through switch chips, ICI wires each TPU straight to its neighbours, so there are no switches between chips in a group.</p>
+        <p>It is Google's <b>scale-up</b> network: the fast fabric that lets thousands of TPUs work on one model.</p>
+        <div class="analogy"><b>Analogy:</b> houses on a street with doors straight into their neighbours, instead of everyone going via a central square.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-torus" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a 3D torus?</h4></div>
+      <button class="close" popovertarget="g-concept-torus" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>A <b>topology</b> is the wiring pattern between chips. In a <b>3D torus</b>, chips sit in a cube grid and each links to its six neighbours (left, right, up, down, front, back), with the edges wrapping around to the opposite side.</p>
+        <p>It is cheap and scales to huge sizes, and it suits training, where chips mostly talk to their neighbours.</p>
+        <div class="analogy"><b>Analogy:</b> a Rubik's cube where walking off one face brings you back in on the opposite face.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-ocs" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is an optical circuit switch?</h4></div>
+      <button class="close" popovertarget="g-concept-ocs" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>An <b>optical circuit switch (OCS)</b> steers beams of light with tiny tilting mirrors. It doesn't read the data at all; it simply reconnects fibres, so it uses little power and never needs upgrading for faster links.</p>
+        <p>Google uses OCS to join racks of TPUs into a pod and to rewire around failed racks in seconds.</p>
+        <div class="analogy"><b>Analogy:</b> an old telephone switchboard, where an operator plugs a cable to connect two lines directly.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-host" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a host CPU?</h4></div>
+      <button class="close" popovertarget="g-concept-host" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>TPUs can't run an operating system. A <b>host CPU</b> boots the machine, feeds the TPUs data and runs everything that isn't matrix maths. Google's own host is <b>Axion</b>, an Arm-based CPU.</p>
+        <div class="analogy"><b>Analogy:</b> the head chef who reads the orders and hands tasks to the line cooks.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-dcn" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a data-centre network?</h4></div>
+      <button class="close" popovertarget="g-concept-dcn" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>Beyond one pod, TPUs talk over the <b>data-centre network</b> (scale-out), the same kind of network that connects ordinary servers but built for far higher bandwidth. It lets several pods train one model together.</p>
+        <div class="analogy"><b>Analogy:</b> the motorway between cities, while ICI is the streets inside one city.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-cooling" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>Liquid cooling</h4></div>
+      <button class="close" popovertarget="g-concept-cooling" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>AI chips produce more heat than fans can remove. <b>Direct liquid cooling</b> pumps coolant through cold plates pressed onto each chip. Google has been liquid-cooling TPUs since TPU v3 in 2018.</p>
+        <div class="analogy"><b>Analogy:</b> a car radiator. Air cooling works for a lawnmower; a racing engine needs liquid.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-cc" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is confidential computing?</h4></div>
+      <button class="close" popovertarget="g-concept-cc" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>Normally data is encrypted on disk and on the network but readable while it is being processed. <b>Confidential computing</b> keeps it encrypted inside hardware-protected memory, even from the cloud operator, and lets the customer verify this remotely (<b>attestation</b>).</p>
+        <div class="analogy"><b>Analogy:</b> a locked glovebox in a lab. You can work on the sample, but nobody else in the room can touch it.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-concept-pod" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>Pods, superpods and slices</h4></div>
+      <button class="close" popovertarget="g-concept-pod" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>A <b>pod</b> (or superpod) is the largest group of TPUs joined by ICI into one machine. Customers usually rent a <b>slice</b>: a piece of a pod sized to their job, from a few chips to thousands.</p>
+        <div class="analogy"><b>Analogy:</b> a pod is an apartment building; a slice is the set of flats you lease.</div>
+      </div>
+    </div>
+<div class="concept" id="g-8i-concept-boardfly" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is Boardfly?</h4></div>
+      <button class="close" popovertarget="g-8i-concept-boardfly" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p><b>Boardfly</b> is the wiring pattern Google uses for TPU 8i. Four chips on a board link directly to each other. Eight boards form a group, also linked by copper. Thirty-six groups join through optical circuit switches.</p>
+        <p>The aim is fewer hops. Any chip reaches any other in at most 7 hops, against 16 in a 1,024-chip 3D torus. Fewer hops means less waiting in traffic where every chip talks to every other, such as mixture-of-experts models.</p>
+        <div class="analogy"><b>Analogy:</b> a torus is a grid of streets where you cross many junctions. Boardfly adds express routes between districts, so you cross fewer.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-8i-concept-cae" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a Collectives Acceleration Engine?</h4></div>
+      <button class="close" popovertarget="g-8i-concept-cae" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>A <b>collective</b> is an operation where many chips combine or share results, for example adding up partial answers from every chip (a <b>reduction</b>) and waiting until all are done (<b>synchronisation</b>). The CAE is a small block that does this work in hardware, so the TensorCores don't stall.</p>
+        <p>Text generation repeats this step for every new word, so the delay adds up.</p>
+        <div class="analogy"><b>Analogy:</b> a meeting secretary who collects everyone's numbers and announces the total, so the experts keep working.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-8i-concept-kvcache" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a KV cache?</h4></div>
+      <button class="close" popovertarget="g-8i-concept-kvcache" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>While a model writes an answer, it keeps notes on everything said so far: the <b>key-value (KV) cache</b>. It grows with context length and is read again for every new word.</p>
+        <p>If the notes are in fast on-chip SRAM, the chip waits less. If they spill to HBM, speed depends on memory bandwidth.</p>
+        <div class="analogy"><b>Analogy:</b> a reader's margin notes. Notes on the desk are quick to check; notes in the archive are not.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-8i-concept-tray" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is a board (tray)?</h4></div>
+      <button class="close" popovertarget="g-8i-concept-tray" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p>A <b>board</b> or <b>tray</b> is one flat unit that slides into a rack, carrying a few chips and their links. Racks are built from identical trays, so one can be swapped without touching the rest.</p>
+        <div class="analogy"><b>Analogy:</b> a drawer in a filing cabinet. Pull one out; the others stay put.</div>
+      </div>
+    </div>
+<div class="concept" id="g-8t-concept-goodput" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is goodput?</h4></div>
+      <button class="close" popovertarget="g-8t-concept-goodput" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p><b>Goodput</b> is the share of time a training job spends making real progress. Time lost to failures, restarts, and waiting for a repair does not count.</p>
+        <p>In a cluster with thousands of chips, something is always failing. Goodput says how well the system hides that. Google's target for TPU 8t is above 97%.</p>
+        <div class="analogy"><b>Analogy:</b> a delivery van's "useful driving" time. Traffic jams and breakdowns are not goodput.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-8t-concept-fp4" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>What is FP4, and why can't I compare it?</h4></div>
+      <button class="close" popovertarget="g-8t-concept-fp4" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p><b>FP4</b> stores each number in 4 bits instead of 8 (FP8) or 16 (BF16). Smaller numbers mean more maths per second and less memory, at the cost of precision.</p>
+        <p>A peak FP4 figure is therefore about twice a peak FP8 figure on the same hardware. TPU 8t's headline is FP4. Ironwood's headline is FP8. Putting them side by side is not like-for-like.</p>
+        <div class="analogy"><b>Analogy:</b> measuring a runner in half-steps instead of whole steps. The count doubles, but the distance does not.</div>
+      </div>
+    </div>
+
+    <div class="concept" id="g-8t-concept-tpudirect" popover>
+      <div class="concept-head"><span class="eyebrow">Concept</span><h4>TPUDirect and fast storage</h4></div>
+      <button class="close" popovertarget="g-8t-concept-tpudirect" popovertargetaction="hide" aria-label="Close">×</button>
+      <div class="concept-body">
+        <p><b>RDMA</b> (remote direct memory access) lets one machine read another's memory, or a storage system's data, without the CPU copying it along the way. <b>TPUDirect RDMA</b> and <b>TPUDirect Storage</b> are Google's versions for TPUs. Google says they help give 10× faster storage access, together with Managed Lustre 10T.</p>
+        <p>This matters because chips sit idle when training data arrives late.</p>
+        <div class="analogy"><b>Analogy:</b> a conveyor belt straight from the warehouse to the workbench, with no one carrying boxes by hand.</div>
+      </div>
+    </div>
+
+    <nav class="pager" aria-label="Previous and next provider">
+      <a href="amd.html"><span aria-hidden="true">←</span> AMD</a>
+      <a href="aws.html">AWS <span aria-hidden="true">→</span></a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">Sources:
+      <a href="https://blog.google/innovation-and-ai/infrastructure-and-cloud/google-cloud/eighth-generation-tpu-agentic-era/">Google: eighth-generation TPU</a> ·
+      <a href="https://blog.google/innovation-and-ai/infrastructure-and-cloud/global-network/tpu-8i-max-and-8tx/">Google: TPU 8i Max and 8tx</a> ·
+      <a href="https://developers.googleblog.com/en/torchtpu-running-pytorch-natively-on-tpus-at-google-scale/">Google: TorchTPU</a> ·
+      <a href="https://www.nextplatform.com/compute/2026/11/09/google-rejiggers-tpu-accelerators-for-broader-ai-inference-work/5308534">The Next Platform</a>
+      · <a href="https://cloud.google.com/blog/products/compute/tpu-8t-and-tpu-8i-technical-deep-dive">Google Cloud: TPU 8t and 8i deep dive</a>
+      · <a href="https://docs.cloud.google.com/tpu/docs/tpu7x">Ironwood docs</a>
+      · <a href="https://cloud.google.com/blog/topics/ai-infrastructure/cloud-pathways-a-distributed-ml-runtime-is-ga">Cloud Pathways GA</a>
+      · <a href="https://www.servethehome.com/googles-tpuv8s-for-training-and-inference-at-hot-chips-2026/">ServeTheHome: Hot Chips 2026</a>
+      · <a href="https://newsroom.amd.com/news/amd-epyc-expands-leadership-foundation-ai/">AMD: EPYC in TPU 8tx</a>
+      <p class="site-footer__legal">AI Accelerators 101 · Figures as of 12 November 2026 · Vendor claims are labelled as such. Product names and logos are trademarks of their owners.</p>
+    </div>
+  </footer>
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/rack-explorer.js"></script>
+<script>
+/* the chooser: the panel takes the picked chip's name and role colour (from the cards or the Variant dropdown,
+   whatever sets them); arrow keys move between the cards and pick */
+(() => {
+  const panel = document.querySelector('.chooser__panel'), out = document.querySelector('[data-pick-name]');
+  const btns = [...document.querySelectorAll('.chooser [data-pick]')];
+  if (!panel || !btns.length) return;
+  const sync = () => {
+    const on = btns.find((b) => b.getAttribute('aria-pressed') === 'true'); if (!on) return;
+    out.textContent = on.querySelector('.vn').textContent; panel.dataset.r = on.dataset.r;
+  };
+  const mo = new MutationObserver(sync); btns.forEach((b) => mo.observe(b, { attributes: true, attributeFilter: ['aria-pressed'] })); sync();
+  document.querySelector('.chooser .variant-picker').addEventListener('keydown', (e) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]; if (!step) return;
+    const i = btns.indexOf(document.activeElement); if (i < 0) return;
+    e.preventDefault(); const n = btns[(i + step + btns.length) % btns.length]; n.focus(); n.click();
+  });
+})();
+</script>
+<script src="../assets/js/glossary.js" defer></script>
+</body>
+</html>
